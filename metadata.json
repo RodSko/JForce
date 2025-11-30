@@ -1,0 +1,5 @@
+{
+  "name": "LogiTeam Manager",
+  "description": "A comprehensive logistics team management application for tracking daily tasks, route assignments, and operational volume with AI-powered rotation suggestions.",
+  "requestFramePermissions": []
+}
