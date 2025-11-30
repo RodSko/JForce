@@ -1,30 +1,43 @@
 import React, { useState } from 'react';
 import { Employee } from '../types';
-import { UserPlus, UserX, UserCheck, Pencil, Check, X } from 'lucide-react';
+import { UserPlus, UserX, UserCheck, Pencil, Check, X, Loader2 } from 'lucide-react';
 
 interface Props {
   employees: Employee[];
-  setEmployees: React.Dispatch<React.SetStateAction<Employee[]>>;
+  onAddEmployee: (emp: Employee) => Promise<void>;
+  onUpdateEmployee: (emp: Employee) => Promise<void>;
 }
 
-const TeamManagement: React.FC<Props> = ({ employees, setEmployees }) => {
+const TeamManagement: React.FC<Props> = ({ employees, onAddEmployee, onUpdateEmployee }) => {
   const [newName, setNewName] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editNameValue, setEditNameValue] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!newName.trim()) return;
-    const newEmp: Employee = {
-      id: `emp-${Date.now()}`,
-      name: newName,
-      active: true
-    };
-    setEmployees(prev => [...prev, newEmp]);
-    setNewName('');
+    setLoading(true);
+    try {
+      const newEmp: Employee = {
+        id: `emp-${Date.now()}`,
+        name: newName,
+        active: true
+      };
+      await onAddEmployee(newEmp);
+      setNewName('');
+    } catch (error) {
+      alert('Erro ao adicionar colaborador. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const toggleStatus = (id: string) => {
-    setEmployees(prev => prev.map(e => e.id === id ? { ...e, active: !e.active } : e));
+  const toggleStatus = async (emp: Employee) => {
+    try {
+      await onUpdateEmployee({ ...emp, active: !emp.active });
+    } catch (error) {
+      alert('Erro ao atualizar status.');
+    }
   };
 
   const startEditing = (emp: Employee) => {
@@ -32,11 +45,15 @@ const TeamManagement: React.FC<Props> = ({ employees, setEmployees }) => {
     setEditNameValue(emp.name);
   };
 
-  const saveEdit = () => {
+  const saveEdit = async (originalEmp: Employee) => {
     if (editingId && editNameValue.trim()) {
-      setEmployees(prev => prev.map(e => e.id === editingId ? { ...e, name: editNameValue } : e));
-      setEditingId(null);
-      setEditNameValue('');
+      try {
+        await onUpdateEmployee({ ...originalEmp, name: editNameValue });
+        setEditingId(null);
+        setEditNameValue('');
+      } catch (error) {
+        alert('Erro ao salvar nome.');
+      }
     }
   };
 
@@ -55,15 +72,18 @@ const TeamManagement: React.FC<Props> = ({ employees, setEmployees }) => {
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             placeholder="Nome do colaborador"
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+            className="w-full px-4 py-2 bg-white text-slate-900 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
             onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+            disabled={loading}
           />
         </div>
         <button 
           onClick={handleAdd}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors"
+          disabled={loading}
+          className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors disabled:opacity-50"
         >
-          <UserPlus className="w-4 h-4" /> Adicionar
+          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />} 
+          Adicionar
         </button>
       </div>
 
@@ -87,7 +107,7 @@ const TeamManagement: React.FC<Props> = ({ employees, setEmployees }) => {
                       onChange={(e) => setEditNameValue(e.target.value)}
                       className="w-full px-2 py-1 bg-white text-slate-900 border border-slate-300 rounded focus:ring-2 focus:ring-indigo-500 outline-none"
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter') saveEdit();
+                        if (e.key === 'Enter') saveEdit(emp);
                         if (e.key === 'Escape') cancelEdit();
                       }}
                       autoFocus
@@ -108,7 +128,7 @@ const TeamManagement: React.FC<Props> = ({ employees, setEmployees }) => {
                     {editingId === emp.id ? (
                       <>
                         <button
-                          onClick={saveEdit}
+                          onClick={() => saveEdit(emp)}
                           className="text-green-600 hover:text-green-700 p-1 rounded hover:bg-green-50"
                           title="Salvar"
                         >
@@ -135,7 +155,7 @@ const TeamManagement: React.FC<Props> = ({ employees, setEmployees }) => {
                     <div className="h-4 w-px bg-slate-200 mx-1"></div>
 
                     <button
-                      onClick={() => toggleStatus(emp.id)}
+                      onClick={() => toggleStatus(emp)}
                       className={`text-sm font-medium ${
                         emp.active ? 'text-red-600 hover:text-red-700' : 'text-green-600 hover:text-green-700'
                       }`}
@@ -154,7 +174,7 @@ const TeamManagement: React.FC<Props> = ({ employees, setEmployees }) => {
         </table>
         {employees.length === 0 && (
           <div className="p-8 text-center text-slate-500">
-            Nenhum colaborador cadastrado.
+            Nenhum colaborador cadastrado ou carregando...
           </div>
         )}
       </div>
