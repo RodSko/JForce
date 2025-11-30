@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { DailyRecord, Employee, TaskDefinition, Assignment, TripInfo } from '../types';
 import { TASK_DEFINITIONS } from '../constants';
 import AssignmentCard from './AssignmentCard';
-import { Save, Sparkles, Loader2, Calendar, LockOpen, Lock, Container, Plus, Trash2 } from 'lucide-react';
+import { Save, Sparkles, Loader2, Calendar, Unlock, Lock, Container, Plus, Trash2 } from 'lucide-react';
 import { generateScheduleSuggestion } from '../services/geminiService';
 
 interface Props {
@@ -256,7 +256,7 @@ const DailyOperations: React.FC<Props> = ({ employees, history, onSaveRecord }) 
                       }`}
                       title={trip.unsealed ? "Deslacrada" : "Lacrada"}
                     >
-                      {trip.unsealed ? <LockOpen className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
+                      {trip.unsealed ? <Unlock className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
                     </button>
 
                     <button
