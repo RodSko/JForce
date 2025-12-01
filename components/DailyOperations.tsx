@@ -95,16 +95,13 @@ const DailyOperations: React.FC<Props> = ({ employees, history, onSaveRecord }) 
   };
 
   const handleSave = () => {
-    if (!volume || !trucks) {
-      alert("Por favor preencha a volumetria e quantidade de carretas.");
-      return;
-    }
+    // Validação removida para permitir salvamento parcial (ex: salvar viagens sem ter volume definido ainda)
     
     const record: DailyRecord = {
       id: date,
       date,
-      volume: Number(volume),
-      trucks: Number(trucks),
+      volume: Number(volume) || 0, // Se estiver vazio, salva como 0
+      trucks: Number(trucks) || 0, // Se estiver vazio, salva como 0
       assignments,
       trips
     };

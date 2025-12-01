@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { DailyRecord, Employee, TaskCategory } from '../types';
 import { TASK_DEFINITIONS } from '../constants';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
-import { Calendar, Filter, Table2, User } from 'lucide-react';
+import { Calendar, Filter, Table2, User, Container, Lock, Unlock } from 'lucide-react';
 
 interface Props {
   history: DailyRecord[];
@@ -81,6 +81,28 @@ const Reports: React.FC<Props> = ({ history, employees }) => {
       return stats;
     });
   }, [targetEmployees, filteredHistory]);
+
+  // 4. Prepare Trips Report Data
+  const tripsData = useMemo(() => {
+    const allTrips: { date: string; id: string; unsealed: boolean; timestamp?: string }[] = [];
+    
+    // Sort history specifically for the table (Newest first)
+    const sortedHistory = [...filteredHistory].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    sortedHistory.forEach(day => {
+      if (day.trips && day.trips.length > 0) {
+        day.trips.forEach(trip => {
+          allTrips.push({
+            date: day.date,
+            id: trip.id,
+            unsealed: trip.unsealed,
+            timestamp: trip.unsealTimestamp
+          });
+        });
+      }
+    });
+    return allTrips;
+  }, [filteredHistory]);
 
   return (
     <div className="space-y-8">
@@ -198,6 +220,60 @@ const Reports: React.FC<Props> = ({ history, employees }) => {
               Sem dados para exibir
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Tabela de Relatório de Viagens e Lacres (MOVIDA PARA CIMA) */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+           <div className="flex items-center gap-2">
+             <Container className="w-5 h-5 text-indigo-600" />
+             <h3 className="font-semibold text-slate-800">Relatório de Viagens e Lacres</h3>
+           </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-slate-100 text-slate-600 font-semibold border-b border-slate-200">
+              <tr>
+                <th className="px-6 py-3 w-40">Data</th>
+                <th className="px-6 py-3">ID Viagem</th>
+                <th className="px-6 py-3">Status</th>
+                <th className="px-6 py-3 text-right">Horário Deslacre</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {tripsData.map((trip, idx) => (
+                <tr key={`${trip.id}-${idx}`} className="hover:bg-slate-50">
+                  <td className="px-6 py-3 font-medium text-slate-700">
+                    {new Date(trip.date).toLocaleDateString('pt-BR')}
+                  </td>
+                  <td className="px-6 py-3 font-mono text-slate-600">
+                    {trip.id}
+                  </td>
+                  <td className="px-6 py-3">
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${
+                      trip.unsealed 
+                        ? 'bg-green-50 text-green-700 border-green-200' 
+                        : 'bg-red-50 text-red-700 border-red-200'
+                    }`}>
+                      {trip.unsealed ? <Unlock className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
+                      {trip.unsealed ? 'Deslacrada' : 'Lacrada'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-3 text-right text-slate-500">
+                    {trip.timestamp ? trip.timestamp : '-'}
+                  </td>
+                </tr>
+              ))}
+              {tripsData.length === 0 && (
+                <tr>
+                   <td colSpan={4} className="p-8 text-center text-slate-400 italic">
+                     Nenhuma viagem registrada no período selecionado.
+                   </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { DailyRecord, Employee } from './types';
+import { DailyRecord, Employee, TripInfo } from './types';
 import Layout from './components/Layout';
 import DailyOperations from './components/DailyOperations';
 import TeamManagement from './components/TeamManagement';
 import Reports from './components/Reports';
+import GenerateReport from './components/GenerateReport';
 import { dataService } from './services/dataService';
 import { Loader2, AlertTriangle, Database, Copy, Check } from 'lucide-react';
 
@@ -37,7 +38,7 @@ DROP POLICY IF EXISTS "Public Access Records" ON public.daily_records;
 CREATE POLICY "Public Access Records" ON public.daily_records FOR ALL USING (true);`;
 
 function App() {
-  const [view, setView] = useState<'daily' | 'team' | 'reports'>('daily');
+  const [view, setView] = useState<'daily' | 'team' | 'reports' | 'generate'>('daily');
   
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [history, setHistory] = useState<DailyRecord[]>([]);
@@ -104,6 +105,49 @@ function App() {
   const handleUpdateEmployee = async (updatedEmp: Employee) => {
     await dataService.updateEmployee(updatedEmp);
     setEmployees(prev => prev.map(e => e.id === updatedEmp.id ? updatedEmp : e));
+  };
+
+  const handleImportTrips = async (importedTrips: { date: string; tripId: string }[]) => {
+    // Agrupar viagens por data para minimizar chamadas ao banco
+    const tripsByDate: Record<string, string[]> = {};
+    importedTrips.forEach(t => {
+      if (!tripsByDate[t.date]) tripsByDate[t.date] = [];
+      tripsByDate[t.date].push(t.tripId);
+    });
+
+    // Para cada data, buscar registro existente, adicionar viagens e salvar
+    // Nota: Em um app real, isso deveria ser feito no backend ou com uma função RPC no Supabase
+    // para performance e atomicidade. Aqui faremos client-side pela simplicidade.
+    
+    for (const [date, newTripIds] of Object.entries(tripsByDate)) {
+      // 1. Achar registro existente na memória (ou criar novo)
+      let record = history.find(h => h.date === date);
+      
+      if (!record) {
+        record = {
+          id: date,
+          date: date,
+          volume: 0,
+          trucks: 0,
+          assignments: [],
+          trips: []
+        };
+      }
+
+      // 2. Mesclar viagens (evitar duplicatas de ID)
+      const existingTrips = record.trips || [];
+      const tripsToAdd: TripInfo[] = newTripIds
+        .filter(newId => !existingTrips.some(et => et.id === newId))
+        .map(id => ({ id, unsealed: false }));
+      
+      if (tripsToAdd.length > 0) {
+        const updatedRecord = {
+          ...record,
+          trips: [...existingTrips, ...tripsToAdd]
+        };
+        await handleSaveRecord(updatedRecord);
+      }
+    }
   };
 
   const copySqlToClipboard = () => {
@@ -209,6 +253,12 @@ function App() {
         <Reports 
           history={history} 
           employees={employees} 
+        />
+      )}
+      {view === 'generate' && (
+        <GenerateReport 
+          history={history}
+          onImportTrips={handleImportTrips}
         />
       )}
     </Layout>
