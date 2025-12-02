@@ -244,12 +244,11 @@ const ShippedNotArrived: React.FC = () => {
             return dateB - dateA; // Decrescente (Mais novo primeiro)
           }
 
-          // Fallback para string se a data não for parseável
+          // Fallback para string comparison (usando localeCompare para evitar erro de JSX)
           const strA = String(valA || '');
           const strB = String(valB || '');
-          if (strA < strB) return 1;
-          if (strA > strB) return -1;
-          return 0;
+          // Retorna positivo se strB > strA, negativo se strB < strA (ordem decrescente Z-A)
+          return strB.localeCompare(strA);
         });
       }
 
