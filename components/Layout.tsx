@@ -1,7 +1,7 @@
 import React from 'react';
-import { LayoutDashboard, Users, BarChart3, Boxes, FileText } from 'lucide-react';
+import { LayoutDashboard, Users, BarChart3, Boxes, FileText, Truck } from 'lucide-react';
 
-type View = 'daily' | 'team' | 'reports' | 'generate';
+type View = 'daily' | 'team' | 'reports' | 'generate' | 'shipped';
 
 interface Props {
   currentView: View;
@@ -14,6 +14,7 @@ const Layout: React.FC<Props> = ({ currentView, onChangeView, children }) => {
     { id: 'daily', label: 'Operação Diária', icon: LayoutDashboard },
     { id: 'reports', label: 'Relatórios & Métricas', icon: BarChart3 },
     { id: 'generate', label: 'Gerar Report', icon: FileText },
+    { id: 'shipped', label: 'Expedido Mas Não Chegou', icon: Truck },
     { id: 'team', label: 'Equipe', icon: Users },
   ] as const;
 
@@ -59,7 +60,7 @@ const Layout: React.FC<Props> = ({ currentView, onChangeView, children }) => {
 
       {/* Main Content */}
       <main className="flex-1 overflow-auto">
-        <header className="bg-white border-b border-slate-200 px-8 py-5 flex justify-between items-center sticky top-0 z-10">
+        <header className="bg-white border-b border-slate-200 px-8 py-5 flex justify-between items-center sticky top-0 z-10 print:hidden">
           <h2 className="text-2xl font-bold text-slate-800">
             {navItems.find(i => i.id === currentView)?.label}
           </h2>
@@ -69,7 +70,7 @@ const Layout: React.FC<Props> = ({ currentView, onChangeView, children }) => {
           </div>
         </header>
 
-        <div className="p-8 max-w-7xl mx-auto">
+        <div className="p-8 max-w-7xl mx-auto print:p-0">
           {children}
         </div>
       </main>

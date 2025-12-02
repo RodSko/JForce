@@ -16,7 +16,8 @@
     "recharts": "^2.12.2",
     "@google/genai": "*",
     "@supabase/supabase-js": "^2.39.7",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "docx": "^8.5.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.66",

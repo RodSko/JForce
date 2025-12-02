@@ -5,6 +5,7 @@ import DailyOperations from './components/DailyOperations';
 import TeamManagement from './components/TeamManagement';
 import Reports from './components/Reports';
 import GenerateReport from './components/GenerateReport';
+import ShippedNotArrived from './components/ShippedNotArrived';
 import { dataService } from './services/dataService';
 import { Loader2, AlertTriangle, Database, Copy, Check } from 'lucide-react';
 
@@ -38,7 +39,7 @@ DROP POLICY IF EXISTS "Public Access Records" ON public.daily_records;
 CREATE POLICY "Public Access Records" ON public.daily_records FOR ALL USING (true);`;
 
 function App() {
-  const [view, setView] = useState<'daily' | 'team' | 'reports' | 'generate'>('daily');
+  const [view, setView] = useState<'daily' | 'team' | 'reports' | 'generate' | 'shipped'>('daily');
   
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [history, setHistory] = useState<DailyRecord[]>([]);
@@ -260,6 +261,9 @@ function App() {
           history={history}
           onImportTrips={handleImportTrips}
         />
+      )}
+      {view === 'shipped' && (
+        <ShippedNotArrived />
       )}
     </Layout>
   );
