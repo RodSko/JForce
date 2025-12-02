@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { DailyRecord, Employee, TaskDefinition, Assignment, TripInfo } from '../types';
 import { TASK_DEFINITIONS } from '../constants';
 import AssignmentCard from './AssignmentCard';
-import { Save, Sparkles, Loader2, Calendar, Unlock, Lock, Container, Plus, Trash2 } from 'lucide-react';
+import { Save, Sparkles, Loader2, Calendar, Unlock, Lock, Container, Plus, Trash2, Eraser } from 'lucide-react';
 import { generateScheduleSuggestion } from '../services/geminiService';
 
 interface Props {
@@ -61,6 +61,12 @@ const DailyOperations: React.FC<Props> = ({ employees, history, onSaveRecord }) 
 
   const handleRemoveTrip = (index: number) => {
     setTrips(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleClearAllTrips = () => {
+    if (window.confirm('Tem certeza que deseja remover todas as viagens deste dia?')) {
+      setTrips([]);
+    }
   };
 
   const handleTripChange = (index: number, value: string) => {
@@ -218,10 +224,23 @@ const DailyOperations: React.FC<Props> = ({ employees, history, onSaveRecord }) 
 
           {/* Trip Registration */}
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex items-center gap-2">
-              <Container className="w-4 h-4 text-slate-500" />
-              <h3 className="text-sm font-semibold text-slate-700">Registro de Viagens</h3>
-              <span className="ml-auto text-xs bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">{trips.length}/5</span>
+            <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Container className="w-4 h-4 text-slate-500" />
+                <h3 className="text-sm font-semibold text-slate-700">Registro de Viagens</h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">{trips.length}/5</span>
+                {trips.length > 0 && (
+                  <button 
+                    onClick={handleClearAllTrips}
+                    className="text-slate-400 hover:text-red-500 transition-colors"
+                    title="Limpar todas as viagens"
+                  >
+                    <Eraser className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
             </div>
             
             <div className="p-4 space-y-3">

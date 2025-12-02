@@ -1,14 +1,10 @@
 import React, { useRef, useState } from 'react';
-import { DailyRecord } from '../types';
 import { Upload, FileSpreadsheet, FileText, AlertCircle, CheckCircle2, Printer, ImageDown, Camera } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Document, Packer, Paragraph, Table, TableCell, TableRow, WidthType, BorderStyle, TextRun, AlignmentType, VerticalAlign, PageOrientation, ImageRun } from 'docx';
 import html2canvas from 'html2canvas';
 
-interface Props {
-  history: DailyRecord[];
-  onImportTrips: (data: { date: string; tripId: string }[]) => Promise<void>;
-}
+interface Props {}
 
 interface ReportItem {
   pdd: string;
@@ -20,7 +16,7 @@ interface ReportItem {
   plate: string;
 }
 
-const GenerateReport: React.FC<Props> = ({ history, onImportTrips }) => {
+const GenerateReport: React.FC<Props> = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null); // Ref para input de foto
   const reportContainerRef = useRef<HTMLDivElement>(null);
@@ -108,12 +104,10 @@ const GenerateReport: React.FC<Props> = ({ history, onImportTrips }) => {
           throw new Error("Arquivo vazio ou formato inválido.");
         }
 
-        const tripsToImport: { date: string; tripId: string }[] = [];
         const processedReportItems: ReportItem[] = [];
 
         jsonData.forEach((row: any) => {
           const idViagem = row['Tarefa de transporte No.'] || row['ID Viagem'] || row['Trip ID'];
-          const dataSaida = row['Hora de saída planejada'] || row['Data'] || row['Previsão de chegada'];
           
           const pddChegada = row['PDD de chegada'] || row['Destino'] || '';
           const tipoVeiculo = row['Tipo de veículo utilizado'] || row['Veículo'] || '';
@@ -122,25 +116,7 @@ const GenerateReport: React.FC<Props> = ({ history, onImportTrips }) => {
           
           if (!idViagem) return;
 
-          // 1. Processar dados para Importação no Sistema
-          let dateStr = '';
-          if (dataSaida) {
-            const matches = dataSaida.toString().match(/(\d{4}-\d{2}-\d{2})/);
-            if (matches) {
-              dateStr = matches[0];
-            } else {
-              dateStr = new Date().toISOString().split('T')[0];
-            }
-          } else {
-             dateStr = new Date().toISOString().split('T')[0];
-          }
-
-          tripsToImport.push({
-            date: dateStr,
-            tripId: idViagem.toString().trim()
-          });
-
-          // 2. Processar dados para o Relatório Visual
+          // Processar dados para o Relatório Visual
           const capacidade = getCapacity(tipoVeiculo);
           let rawVol = pedidoMae.toString();
           if (rawVol.includes(',') && !rawVol.includes('.')) {
@@ -160,17 +136,14 @@ const GenerateReport: React.FC<Props> = ({ history, onImportTrips }) => {
           });
         });
 
-        if (tripsToImport.length === 0) {
+        if (processedReportItems.length === 0) {
           throw new Error("Nenhuma viagem válida encontrada.");
         }
-
-        // Importar para DB
-        await onImportTrips(tripsToImport);
         
         // Atualizar estado para mostrar relatório visual
         setReportData(processedReportItems);
         setImportStatus('success');
-        setStatusMessage(`${tripsToImport.length} viagens processadas com sucesso!`);
+        setStatusMessage(`${processedReportItems.length} viagens processadas para o relatório!`);
         
         if (fileInputRef.current) fileInputRef.current.value = '';
 
@@ -207,15 +180,6 @@ const GenerateReport: React.FC<Props> = ({ history, onImportTrips }) => {
       console.error("Erro ao gerar PNG:", err);
       alert("Não foi possível gerar a imagem.");
     }
-  };
-
-  const readFileAsBinary = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => resolve(e.target?.result as string);
-      reader.onerror = (e) => reject(e);
-      reader.readAsBinaryString(file);
-    });
   };
 
   // Helper para converter DataURL para ArrayBuffer (necessário para docx)
@@ -452,7 +416,7 @@ const GenerateReport: React.FC<Props> = ({ history, onImportTrips }) => {
         <div className="bg-indigo-900 rounded-2xl p-8 text-white shadow-xl bg-[url('https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80')] bg-cover bg-center bg-blend-overlay bg-opacity-90">
           <h2 className="text-3xl font-bold mb-2">Central de Relatórios</h2>
           <p className="text-indigo-100 max-w-xl">
-            Importe a planilha para gerar os cartões de carregamento visual e alimentar o sistema.
+            Importe a planilha para gerar os cartões de carregamento visual.
           </p>
         </div>
 
@@ -560,7 +524,7 @@ const GenerateReport: React.FC<Props> = ({ history, onImportTrips }) => {
                       <img 
                         src={vehiclePhotos[item.id]} 
                         alt={`Veículo ${item.id}`} 
-                        className="w-full h-full object-cover"
+                        className="max-w-full max-h-full w-auto h-auto"
                       />
                     ) : (
                       <>

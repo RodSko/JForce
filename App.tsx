@@ -108,49 +108,6 @@ function App() {
     setEmployees(prev => prev.map(e => e.id === updatedEmp.id ? updatedEmp : e));
   };
 
-  const handleImportTrips = async (importedTrips: { date: string; tripId: string }[]) => {
-    // Agrupar viagens por data para minimizar chamadas ao banco
-    const tripsByDate: Record<string, string[]> = {};
-    importedTrips.forEach(t => {
-      if (!tripsByDate[t.date]) tripsByDate[t.date] = [];
-      tripsByDate[t.date].push(t.tripId);
-    });
-
-    // Para cada data, buscar registro existente, adicionar viagens e salvar
-    // Nota: Em um app real, isso deveria ser feito no backend ou com uma função RPC no Supabase
-    // para performance e atomicidade. Aqui faremos client-side pela simplicidade.
-    
-    for (const [date, newTripIds] of Object.entries(tripsByDate)) {
-      // 1. Achar registro existente na memória (ou criar novo)
-      let record = history.find(h => h.date === date);
-      
-      if (!record) {
-        record = {
-          id: date,
-          date: date,
-          volume: 0,
-          trucks: 0,
-          assignments: [],
-          trips: []
-        };
-      }
-
-      // 2. Mesclar viagens (evitar duplicatas de ID)
-      const existingTrips = record.trips || [];
-      const tripsToAdd: TripInfo[] = newTripIds
-        .filter(newId => !existingTrips.some(et => et.id === newId))
-        .map(id => ({ id, unsealed: false }));
-      
-      if (tripsToAdd.length > 0) {
-        const updatedRecord = {
-          ...record,
-          trips: [...existingTrips, ...tripsToAdd]
-        };
-        await handleSaveRecord(updatedRecord);
-      }
-    }
-  };
-
   const copySqlToClipboard = () => {
     navigator.clipboard.writeText(SETUP_SQL);
     setCopied(true);
@@ -259,7 +216,6 @@ function App() {
       {view === 'generate' && (
         <GenerateReport 
           history={history}
-          onImportTrips={handleImportTrips}
         />
       )}
       {view === 'shipped' && (
