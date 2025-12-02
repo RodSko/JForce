@@ -1,8 +1,9 @@
 import React, { useRef, useState } from 'react';
 import { DailyRecord } from '../types';
-import { Download, Upload, FileSpreadsheet, FileText, AlertCircle, CheckCircle2, Printer, Image as ImageIcon, Settings, File as FileIcon } from 'lucide-react';
+import { Upload, FileSpreadsheet, FileText, AlertCircle, CheckCircle2, Printer, ImageDown, Camera } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { Document, Packer, Paragraph, Table, TableCell, TableRow, WidthType, BorderStyle, TextRun, AlignmentType, VerticalAlign, PageOrientation } from 'docx';
+import { Document, Packer, Paragraph, Table, TableCell, TableRow, WidthType, BorderStyle, TextRun, AlignmentType, VerticalAlign, PageOrientation, ImageRun } from 'docx';
+import html2canvas from 'html2canvas';
 
 interface Props {
   history: DailyRecord[];
@@ -21,15 +22,16 @@ interface ReportItem {
 
 const GenerateReport: React.FC<Props> = ({ history, onImportTrips }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const templateInputRef = useRef<HTMLInputElement>(null); // Ref para o input do template
+  const photoInputRef = useRef<HTMLInputElement>(null); // Ref para input de foto
+  const reportContainerRef = useRef<HTMLDivElement>(null);
   
   const [importStatus, setImportStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [statusMessage, setStatusMessage] = useState('');
   const [reportData, setReportData] = useState<ReportItem[]>([]);
   
-  // Estado para o Template
-  const [templateFile, setTemplateFile] = useState<File | null>(null);
-  const [templateName, setTemplateName] = useState<string | null>(null);
+  // Estado para armazenar fotos dos veículos: Map<TripID, Base64String>
+  const [vehiclePhotos, setVehiclePhotos] = useState<Record<string, string>>({});
+  const [activePhotoId, setActivePhotoId] = useState<string | null>(null);
 
   // Mapeamento de Capacidade por Tipo de Veículo
   const getCapacity = (vehicleType: string): number => {
@@ -43,70 +45,44 @@ const GenerateReport: React.FC<Props> = ({ history, onImportTrips }) => {
     return 0; // Desconhecido
   };
 
-  const handleDownloadHistoryReport = () => {
-    const headers = ['Data', 'ID Viagem', 'Status', 'Hora Deslacre', 'Volume Dia', 'Carretas Dia'];
-    const rows: string[] = [];
-    
-    const sortedHistory = [...history].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-    sortedHistory.forEach(record => {
-      if (record.trips && record.trips.length > 0) {
-        record.trips.forEach(trip => {
-          rows.push([
-            record.date,
-            trip.id,
-            trip.unsealed ? 'Deslacrada' : 'Lacrada',
-            trip.unsealTimestamp || '',
-            record.volume.toString(),
-            record.trucks.toString()
-          ].join(';'));
-        });
-      } else {
-        rows.push([
-          record.date,
-          'N/A',
-          '-',
-          '-',
-          record.volume.toString(),
-          record.trucks.toString()
-        ].join(';'));
-      }
-    });
-
-    downloadCSV(headers, rows, `historico_viagens_${new Date().toISOString().split('T')[0]}.csv`);
-  };
-
-  const downloadCSV = (headers: string[], rows: string[], filename: string) => {
-    const csvContent = "data:text/csv;charset=utf-8,\uFEFF"
-      + headers.join(';') + '\n' + rows.join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", filename);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const getTomorrowDate = () => {
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toLocaleDateString('pt-BR');
   };
 
   const triggerFileInput = () => {
     setImportStatus('idle');
-    setReportData([]); // Limpar relatório anterior
+    setReportData([]); 
+    setVehiclePhotos({}); // Limpar fotos ao carregar nova planilha
     if (fileInputRef.current) {
       fileInputRef.current.click();
     }
   };
 
-  const triggerTemplateInput = () => {
-    if (templateInputRef.current) {
-      templateInputRef.current.click();
+  // Aciona o input de foto para um cartão específico
+  const handlePhotoCardClick = (id: string) => {
+    setActivePhotoId(id);
+    if (photoInputRef.current) {
+      photoInputRef.current.value = ''; // Resetar valor para permitir re-seleção do mesmo arquivo
+      photoInputRef.current.click();
     }
   };
 
-  const handleTemplateUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      setTemplateFile(file);
-      setTemplateName(file.name);
+    if (file && activePhotoId) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        if (e.target?.result) {
+          setVehiclePhotos(prev => ({
+            ...prev,
+            [activePhotoId]: e.target!.result as string
+          }));
+        }
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -212,6 +188,27 @@ const GenerateReport: React.FC<Props> = ({ history, onImportTrips }) => {
     window.print();
   };
 
+  const handleExportToPNG = async () => {
+    if (!reportContainerRef.current) return;
+    
+    try {
+      const canvas = await html2canvas(reportContainerRef.current, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true
+      });
+      
+      const image = canvas.toDataURL("image/png");
+      const link = document.createElement('a');
+      link.href = image;
+      link.download = `Relatorio_Visual_${new Date().toISOString().split('T')[0]}.png`;
+      link.click();
+    } catch (err) {
+      console.error("Erro ao gerar PNG:", err);
+      alert("Não foi possível gerar a imagem.");
+    }
+  };
+
   const readFileAsBinary = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -221,35 +218,21 @@ const GenerateReport: React.FC<Props> = ({ history, onImportTrips }) => {
     });
   };
 
+  // Helper para converter DataURL para ArrayBuffer (necessário para docx)
+  const dataUrlToArrayBuffer = async (dataUrl: string) => {
+    const res = await fetch(dataUrl);
+    return await res.arrayBuffer();
+  };
+
   const handleExportToExcel = async () => {
-    let wb: XLSX.WorkBook;
-    let ws: XLSX.WorkSheet;
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([]);
 
-    if (templateFile) {
-      try {
-        const data = await readFileAsBinary(templateFile);
-        wb = XLSX.read(data, { type: 'binary' });
-        // Usar a primeira planilha do template
-        ws = wb.Sheets[wb.SheetNames[0]];
-      } catch (error) {
-        alert("Erro ao ler o arquivo de template.");
-        return;
-      }
-    } else {
-      // Criar novo workbook se não houver template
-      wb = XLSX.utils.book_new();
-      ws = XLSX.utils.aoa_to_sheet([]);
-    }
-
-    // Configuração do Grid Visual (4 Cartões por Linha)
     const CARDS_PER_ROW = 4;
     const grid: any[][] = [];
     
-    // Recuperar merges existentes se houver (para não quebrar o template)
-    const existingMerges = ws['!merges'] || [];
-    const newMerges: XLSX.Range[] = [...existingMerges];
+    const newMerges: XLSX.Range[] = [];
 
-    // Função auxiliar para setar valor na grid (Array of Arrays)
     const setGridCell = (r: number, c: number, val: any) => {
       if (!grid[r]) grid[r] = [];
       grid[r][c] = val;
@@ -259,121 +242,109 @@ const GenerateReport: React.FC<Props> = ({ history, onImportTrips }) => {
     
     for (let i = 0; i < reportData.length; i++) {
       const item = reportData[i];
-      const colBase = (i % CARDS_PER_ROW) * 3; // Cada cartão ocupa 2 colunas + 1 de espaçamento
+      const colBase = (i % CARDS_PER_ROW) * 3;
       
-      // Se mudou de linha na grid (a cada 4 itens)
       if (i > 0 && i % CARDS_PER_ROW === 0) {
-        currentRowBase += 9; // Cada cartão tem aprox 8 linhas de altura + 1 espaço
+        currentRowBase += 9;
       }
 
       const r = currentRowBase;
       const c = colBase;
 
-      // --- Construção do Cartão ---
-      
-      // 1. Área da FOTO (Mesclar 2 colunas por 2 linhas)
+      // Área da FOTO
       setGridCell(r, c, "FOTO DO VEÍCULO");
       setGridCell(r, c+1, "");
       setGridCell(r+1, c, "");
       setGridCell(r+1, c+1, "");
-      
-      // Adicionar Merge
       newMerges.push({ s: { r: r, c: c }, e: { r: r+1, c: c+1 } }); 
 
-      // 2. Dados (Linha por linha)
-      
-      // Nome da Linha
+      // Dados
       setGridCell(r+2, c, "NOME DA LINHA");
       setGridCell(r+2, c+1, item.pdd);
-      
-      // ID Viagem
       setGridCell(r+3, c, "ID VIAGEM");
       setGridCell(r+3, c+1, item.id);
-      
-      // Tipo Veiculo
       setGridCell(r+4, c, "TIPO DE VEICULO");
       setGridCell(r+4, c+1, item.vehicleType);
-      
-      // Volumetria
       setGridCell(r+5, c, "VOLUMETRIA REAL");
       setGridCell(r+5, c+1, item.volume);
-      
-      // Capacidade
       setGridCell(r+6, c, "CAPACIDADE");
       setGridCell(r+6, c+1, item.capacity);
-      
-      // Saturação
       setGridCell(r+7, c, "SATURAÇÃO");
       setGridCell(r+7, c+1, `${(item.saturation * 100).toFixed(0)}%`);
-      
-      // Placa
       setGridCell(r+8, c, "PLACA");
       setGridCell(r+8, c+1, item.plate);
     }
 
-    // Escrever o Grid na Planilha
-    // sheet_add_aoa escreve os dados por cima da planilha existente (ou nova)
     XLSX.utils.sheet_add_aoa(ws, grid, { origin: "A1" });
-
-    // Atualizar Merges
     ws['!merges'] = newMerges;
 
-    // --- CORREÇÃO DE LARGURA DE COLUNAS ---
-    // Define larguras específicas para cada tipo de coluna no padrão de 3 colunas por cartão
     const wscols = [];
-    // Calculamos para cobrir todas as colunas geradas pelo grid
-    // 4 cartões * 3 colunas = 12 colunas no total
     for (let i = 0; i < CARDS_PER_ROW; i++) {
-        // Coluna 1 do Cartão (Rótulo) - Tamanho médio
         wscols.push({ wch: 20 }); 
-        // Coluna 2 do Cartão (Valor) - Tamanho grande (para IDs e Nomes)
         wscols.push({ wch: 35 });
-        // Coluna 3 (Espaçador) - Tamanho pequeno
         wscols.push({ wch: 3 });
     }
     
-    // Sobrescreve as colunas da planilha (mesmo do template) para garantir a formatação
     ws['!cols'] = wscols;
       
-    // Adicionar a planilha ao workbook se for novo (não tem template)
-    if (!templateFile) {
-      XLSX.utils.book_append_sheet(wb, ws, "Relatório");
-    } 
+    XLSX.utils.book_append_sheet(wb, ws, "Relatório");
 
-    // Gerar nome do arquivo
-    const prefix = templateFile ? "Relatorio_Template_" : "Relatorio_Operacional_";
-    const fileName = `${prefix}${new Date().toISOString().split('T')[0]}.xlsx`;
-    
+    const fileName = `Relatorio_Operacional_${new Date().toISOString().split('T')[0]}.xlsx`;
     XLSX.writeFile(wb, fileName);
   };
 
   const handleExportToWord = async () => {
-    // 1. Create the grid logic (4 items per row)
     const rows: TableRow[] = [];
     let currentCells: TableCell[] = [];
 
     for (let i = 0; i < reportData.length; i++) {
       const item = reportData[i];
 
-      // Create the Inner Table (The Card)
+      // Verificar se existe foto carregada
+      let photoChildren: any[] = [
+        new Paragraph({
+          children: [new TextRun({ text: "FOTO DO VEÍCULO", bold: true, size: 20, color: "CCCCCC" })],
+          alignment: AlignmentType.CENTER
+        })
+      ];
+
+      if (vehiclePhotos[item.id]) {
+        try {
+          const imageBuffer = await dataUrlToArrayBuffer(vehiclePhotos[item.id]);
+          photoChildren = [
+            new Paragraph({
+              children: [
+                new ImageRun({
+                  data: imageBuffer,
+                  transformation: {
+                    width: 250,
+                    height: 150,
+                  },
+                }),
+              ],
+              alignment: AlignmentType.CENTER,
+            })
+          ];
+        } catch (e) {
+          console.error("Erro ao processar imagem para Word", e);
+        }
+      }
+
       const cardTable = new Table({
         width: { size: 100, type: WidthType.PERCENTAGE },
         rows: [
           // Photo Row
           new TableRow({
-            height: { value: 2000, rule: 'exact' }, // Space for photo
+            height: { value: 2000, rule: 'atLeast' }, 
             children: [
               new TableCell({
                 columnSpan: 2,
-                children: [new Paragraph({
-                    children: [new TextRun({ text: "FOTO DO VEÍCULO", bold: true, size: 20, color: "CCCCCC" })],
-                    alignment: AlignmentType.CENTER
-                })],
+                children: photoChildren,
                 verticalAlign: VerticalAlign.CENTER,
               })
             ]
           }),
-          // Data Rows helper
+          // Data Rows
           ...[
             ["NOME DA LINHA", item.pdd],
             ["ID VIAGEM", item.id],
@@ -387,7 +358,7 @@ const GenerateReport: React.FC<Props> = ({ history, onImportTrips }) => {
               children: [
                 new TableCell({
                   width: { size: 40, type: WidthType.PERCENTAGE },
-                  shading: { fill: "E5E7EB" }, // Gray-200
+                  shading: { fill: "E5E7EB" },
                   children: [new Paragraph({ children: [new TextRun({ text: label, bold: true, size: 16 })] })],
                   verticalAlign: VerticalAlign.CENTER,
                   margins: { top: 100, bottom: 100, left: 100, right: 100 }
@@ -412,9 +383,8 @@ const GenerateReport: React.FC<Props> = ({ history, onImportTrips }) => {
         ]
       });
 
-      // Add Card Table to a Cell in the Master Row
       currentCells.push(new TableCell({
-        children: [new Paragraph(""), cardTable, new Paragraph("")], // Padding around card
+        children: [new Paragraph(""), cardTable, new Paragraph("")],
         width: { size: 25, type: WidthType.PERCENTAGE },
         borders: {
             top: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
@@ -425,9 +395,7 @@ const GenerateReport: React.FC<Props> = ({ history, onImportTrips }) => {
         margins: { top: 200, bottom: 200, left: 200, right: 200 }
       }));
 
-      // If we have 4 cells or it's the last item, push the row
       if (currentCells.length === 4 || i === reportData.length - 1) {
-        // Fill remaining cells if last row is incomplete
         while (currentCells.length < 4) {
              currentCells.push(new TableCell({ children: [], width: { size: 25, type: WidthType.PERCENTAGE }, borders: { top: { style: BorderStyle.NONE, size: 0, color: "auto" }, bottom: { style: BorderStyle.NONE, size: 0, color: "auto" }, left: { style: BorderStyle.NONE, size: 0, color: "auto" }, right: { style: BorderStyle.NONE, size: 0, color: "auto" } } }));
         }
@@ -471,7 +439,15 @@ const GenerateReport: React.FC<Props> = ({ history, onImportTrips }) => {
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
-      {/* Área de Controle (Não aparece na impressão) */}
+      {/* Input escondido para fotos */}
+      <input 
+        type="file" 
+        ref={photoInputRef} 
+        onChange={handlePhotoUpload} 
+        accept="image/*" 
+        className="hidden" 
+      />
+
       <div className="print:hidden space-y-8">
         <div className="bg-indigo-900 rounded-2xl p-8 text-white shadow-xl bg-[url('https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80')] bg-cover bg-center bg-blend-overlay bg-opacity-90">
           <h2 className="text-3xl font-bold mb-2">Central de Relatórios</h2>
@@ -480,70 +456,16 @@ const GenerateReport: React.FC<Props> = ({ history, onImportTrips }) => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Card Baixar Histórico */}
-          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
-            <div>
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
-                <Download className="w-6 h-6 text-blue-600" />
-              </div>
-              <h3 className="text-lg font-bold text-slate-800 mb-2">Baixar Histórico</h3>
-              <p className="text-sm text-slate-500">Download completo do histórico de viagens e lacres em CSV.</p>
-            </div>
-            <button 
-              onClick={handleDownloadHistoryReport}
-              className="w-full flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white py-3 rounded-lg font-medium transition-colors mt-4"
-            >
-              <FileSpreadsheet className="w-4 h-4" />
-              Baixar CSV
-            </button>
-          </div>
-
-          {/* Card Configurar Template */}
-          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
-            <div>
-              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
-                <Settings className="w-6 h-6 text-purple-600" />
-              </div>
-              <h3 className="text-lg font-bold text-slate-800 mb-2">Configuração de Template</h3>
-              <p className="text-sm text-slate-500 mb-2">Opcional: Envie um arquivo Excel base para formatação personalizada.</p>
-              
-              <div className="bg-slate-50 p-3 rounded border border-slate-200 mb-2">
-                 <div className="flex items-center gap-2 text-sm text-slate-700 font-medium">
-                   <FileIcon className="w-4 h-4 text-slate-400" />
-                   <span className="truncate max-w-[150px]">
-                     {templateName || "Padrão do Sistema"}
-                   </span>
-                 </div>
-              </div>
-            </div>
-
-            <input 
-              type="file" 
-              ref={templateInputRef} 
-              onChange={handleTemplateUpload} 
-              accept=".xlsx,.xls" 
-              className="hidden" 
-            />
-
-            <button 
-              onClick={triggerTemplateInput}
-              className="w-full flex items-center justify-center gap-2 bg-purple-100 hover:bg-purple-200 text-purple-700 py-3 rounded-lg font-medium transition-colors mt-4"
-            >
-              <Upload className="w-4 h-4" />
-              Carregar Template
-            </button>
-          </div>
-
+        <div className="max-w-2xl mx-auto">
           {/* Card Importar Planilha (Principal) */}
           <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm relative flex flex-col justify-between">
-            <div>
-              <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center mb-4">
-                <Upload className="w-6 h-6 text-indigo-600" />
+            <div className="text-center">
+              <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mb-4 mx-auto">
+                <Upload className="w-8 h-8 text-indigo-600" />
               </div>
-              <h3 className="text-lg font-bold text-slate-800 mb-2">Gerar Relatório Visual</h3>
-              <p className="text-slate-500 text-sm mb-4">
-                Carregue a planilha operacional para visualizar e imprimir.
+              <h3 className="text-xl font-bold text-slate-800 mb-2">Gerar Relatório Visual</h3>
+              <p className="text-slate-500 text-sm mb-6 max-w-md mx-auto">
+                Carregue a planilha operacional (.xlsx, .xls ou .csv) para gerar os cartões, visualizar e exportar.
               </p>
             </div>
             
@@ -558,18 +480,18 @@ const GenerateReport: React.FC<Props> = ({ history, onImportTrips }) => {
             <button 
               onClick={triggerFileInput}
               disabled={importStatus === 'loading'}
-              className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-lg font-medium transition-colors disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-xl font-medium transition-colors disabled:opacity-50 text-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 transform"
             >
               {importStatus === 'loading' ? 'Processando...' : (
                 <>
-                  <FileText className="w-4 h-4" />
+                  <FileText className="w-5 h-5" />
                   Selecionar Planilha
                 </>
               )}
             </button>
 
              {importStatus !== 'idle' && (
-              <div className={`mt-4 p-3 rounded-lg text-sm flex items-start gap-2 ${
+              <div className={`mt-4 p-3 rounded-lg text-sm flex items-start justify-center gap-2 ${
                 importStatus === 'error' ? 'bg-red-50 text-red-700' : 
                 importStatus === 'success' ? 'bg-green-50 text-green-700' : 'bg-slate-50 text-slate-600'
               }`}>
@@ -587,90 +509,111 @@ const GenerateReport: React.FC<Props> = ({ history, onImportTrips }) => {
         <div className="animate-fade-in">
           <div className="print:hidden flex flex-col sm:flex-row justify-between items-center mb-6 bg-slate-100 p-4 rounded-lg border border-slate-200 gap-4">
             <h3 className="text-xl font-bold text-slate-800">Pré-visualização do Relatório</h3>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
                <button 
                 onClick={handleExportToWord}
-                className="flex items-center gap-2 bg-blue-700 text-white px-4 py-2 rounded-lg hover:bg-blue-800 transition-colors"
+                className="flex items-center gap-2 bg-blue-700 text-white px-4 py-2 rounded-lg hover:bg-blue-800 transition-colors text-sm font-medium"
               >
                 <FileText className="w-4 h-4" />
-                Baixar Word (.docx)
+                Word
               </button>
               <button 
                 onClick={handleExportToExcel}
-                className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
               >
                 <FileSpreadsheet className="w-4 h-4" />
-                Baixar Excel (.xlsx)
+                Excel
+              </button>
+              <button 
+                onClick={handleExportToPNG}
+                className="flex items-center gap-2 bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors text-sm font-medium"
+              >
+                <ImageDown className="w-4 h-4" />
+                PNG
               </button>
               <button 
                 onClick={handlePrint}
-                className="flex items-center gap-2 bg-slate-800 text-white px-4 py-2 rounded-lg hover:bg-slate-900 transition-colors"
+                className="flex items-center gap-2 bg-slate-800 text-white px-4 py-2 rounded-lg hover:bg-slate-900 transition-colors text-sm font-medium"
               >
                 <Printer className="w-4 h-4" />
-                Imprimir / PDF
+                Imprimir
               </button>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 print:grid-cols-4 print:gap-4">
-            {reportData.map((item, idx) => (
-              <div key={idx} className="border-2 border-slate-800 break-inside-avoid bg-white flex flex-col">
-                {/* Espaço para Foto */}
-                <div className="h-48 bg-slate-100 border-b-2 border-slate-800 flex flex-col items-center justify-center text-slate-400">
-                  <ImageIcon className="w-8 h-8 mb-2 opacity-50" />
-                  <span className="text-xs uppercase font-bold tracking-wider">Foto do Veículo</span>
-                </div>
+          <div ref={reportContainerRef} className="bg-white p-4">
+            {/* Header Vermelho para PNG/Impressão */}
+            <div className="w-full bg-[#FF0000] text-white font-bold text-2xl text-center py-4 mb-4 uppercase">
+              CARREGAMENTO SE AJU - {getTomorrowDate()}
+            </div>
 
-                {/* Tabela de Dados */}
-                <div className="text-sm">
-                  {/* Linha 1: Nome da Linha */}
-                  <div className="grid grid-cols-2 border-b border-slate-300">
-                    <div className="bg-slate-200 p-2 font-bold text-slate-800 text-xs flex items-center">NOME DA LINHA</div>
-                    <div className="p-2 font-mono text-slate-900 font-bold flex items-center justify-center text-center">{item.pdd || '-'}</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 print:grid-cols-4 print:gap-4">
+              {reportData.map((item, idx) => (
+                <div key={idx} className="border-2 border-slate-800 break-inside-avoid bg-white flex flex-col">
+                  {/* Espaço para Foto (Agora Clicável) */}
+                  <div 
+                    className="h-48 bg-slate-100 border-b-2 border-slate-800 flex flex-col items-center justify-center text-slate-400 cursor-pointer hover:bg-slate-200 transition-colors relative overflow-hidden group"
+                    onClick={() => handlePhotoCardClick(item.id)}
+                    title="Clique para adicionar foto"
+                  >
+                    {vehiclePhotos[item.id] ? (
+                      <img 
+                        src={vehiclePhotos[item.id]} 
+                        alt={`Veículo ${item.id}`} 
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <>
+                        <Camera className="w-10 h-10 mb-2 opacity-40 group-hover:opacity-100 group-hover:scale-110 transition-all text-slate-500" />
+                        <span className="text-xs uppercase font-bold tracking-wider text-slate-500">Adicionar Foto</span>
+                      </>
+                    )}
                   </div>
 
-                  {/* Linha 2: ID Viagem */}
-                  <div className="grid grid-cols-2 border-b border-slate-300">
-                    <div className="bg-slate-100 p-2 font-bold text-slate-700 text-xs flex items-center">ID VIAGEM</div>
-                    <div className="p-2 font-mono text-xs flex items-center justify-center text-center break-all">{item.id}</div>
-                  </div>
+                  {/* Tabela de Dados */}
+                  <div className="text-sm">
+                    <div className="grid grid-cols-2 border-b border-slate-300">
+                      <div className="bg-slate-200 p-2 font-bold text-slate-800 text-xs flex items-center">NOME DA LINHA</div>
+                      <div className="p-2 font-mono text-slate-900 font-bold flex items-center justify-center text-center">{item.pdd || '-'}</div>
+                    </div>
 
-                  {/* Linha 3: Tipo Veículo */}
-                  <div className="grid grid-cols-2 border-b border-slate-300">
-                    <div className="bg-slate-200 p-2 font-bold text-slate-700 text-xs flex items-center">TIPO DE VEICULO</div>
-                    <div className="p-2 text-xs flex items-center justify-center text-center uppercase">{item.vehicleType}</div>
-                  </div>
+                    <div className="grid grid-cols-2 border-b border-slate-300">
+                      <div className="bg-slate-100 p-2 font-bold text-slate-700 text-xs flex items-center">ID VIAGEM</div>
+                      <div className="p-2 font-mono text-xs flex items-center justify-center text-center break-all">{item.id}</div>
+                    </div>
 
-                  {/* Linha 4: Volumetria */}
-                  <div className="grid grid-cols-2 border-b border-slate-300">
-                    <div className="bg-slate-100 p-2 font-bold text-slate-700 text-xs flex items-center">VOLUMETRIA REAL</div>
-                    <div className="p-2 text-xs flex items-center justify-center text-center font-mono">{item.volume}</div>
-                  </div>
+                    <div className="grid grid-cols-2 border-b border-slate-300">
+                      <div className="bg-slate-200 p-2 font-bold text-slate-700 text-xs flex items-center">TIPO DE VEICULO</div>
+                      <div className="p-2 text-xs flex items-center justify-center text-center uppercase">{item.vehicleType}</div>
+                    </div>
 
-                  {/* Linha 5: Capacidade */}
-                  <div className="grid grid-cols-2 border-b border-slate-300">
-                    <div className="bg-slate-200 p-2 font-bold text-slate-700 text-xs flex items-center">CAPACIDADE</div>
-                    <div className="p-2 text-xs flex items-center justify-center text-center font-mono">{item.capacity}</div>
-                  </div>
+                    <div className="grid grid-cols-2 border-b border-slate-300">
+                      <div className="bg-slate-100 p-2 font-bold text-slate-700 text-xs flex items-center">VOLUMETRIA REAL</div>
+                      <div className="p-2 text-xs flex items-center justify-center text-center font-mono">{item.volume}</div>
+                    </div>
 
-                  {/* Linha 6: Saturação */}
-                  <div className="grid grid-cols-2 border-b border-slate-300">
-                    <div className="bg-slate-100 p-2 font-bold text-slate-700 text-xs flex items-center">SATURAÇÃO</div>
-                    <div className={`p-2 text-xs flex items-center justify-center text-center font-bold ${
-                      item.saturation > 1 ? 'text-red-600' : 'text-slate-900'
-                    }`}>
-                      {(item.saturation * 100).toFixed(0)}%
+                    <div className="grid grid-cols-2 border-b border-slate-300">
+                      <div className="bg-slate-200 p-2 font-bold text-slate-700 text-xs flex items-center">CAPACIDADE</div>
+                      <div className="p-2 text-xs flex items-center justify-center text-center font-mono">{item.capacity}</div>
+                    </div>
+
+                    <div className="grid grid-cols-2 border-b border-slate-300">
+                      <div className="bg-slate-100 p-2 font-bold text-slate-700 text-xs flex items-center">SATURAÇÃO</div>
+                      <div className={`p-2 text-xs flex items-center justify-center text-center font-bold ${
+                        item.saturation > 1 ? 'text-red-600' : 'text-slate-900'
+                      }`}>
+                        {(item.saturation * 100).toFixed(0)}%
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2">
+                      <div className="bg-slate-200 p-2 font-bold text-slate-700 text-xs flex items-center">PLACA</div>
+                      <div className="p-2 text-sm flex items-center justify-center text-center font-bold uppercase">{item.plate}</div>
                     </div>
                   </div>
-
-                  {/* Linha 7: Placa */}
-                  <div className="grid grid-cols-2">
-                    <div className="bg-slate-200 p-2 font-bold text-slate-700 text-xs flex items-center">PLACA</div>
-                    <div className="p-2 text-sm flex items-center justify-center text-center font-bold uppercase">{item.plate}</div>
-                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       )}
