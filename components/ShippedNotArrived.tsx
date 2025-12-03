@@ -1,27 +1,27 @@
 import React, { useRef, useState } from 'react';
-import { Upload, FileSpreadsheet, Truck, Package, Download, Loader2, AlertCircle, Search, FileSearch } from 'lucide-react';
+import { Upload, FileSpreadsheet, Truck, Package, Download, Loader2, Search, FileSearch } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 const ShippedNotArrived: React.FC = () => {
-  // Refs para comparação inicial
+  // Refs for Initial Comparison
   const loadingInputRef = useRef<HTMLInputElement>(null);
   const batchInputRef = useRef<HTMLInputElement>(null);
   
-  // Ref para análise avançada
+  // Ref for Advanced Analysis
   const analysisInputRef = useRef<HTMLInputElement>(null);
   
-  // Estados Comparação Inicial
+  // States Initial Comparison
   const [loadingFileName, setLoadingFileName] = useState<string | null>(null);
   const [batchFileName, setBatchFileName] = useState<string | null>(null);
   
-  // Estados Análise Avançada
+  // States Advanced Analysis
   const [analysisFileName, setAnalysisFileName] = useState<string | null>(null);
   const [tripIdFilter, setTripIdFilter] = useState<string>('');
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  // --- Handlers para Comparação Inicial ---
+  // --- Handlers for Initial Comparison ---
   const triggerLoadingInput = () => loadingInputRef.current?.click();
   const triggerBatchInput = () => batchInputRef.current?.click();
 
@@ -35,7 +35,7 @@ const ShippedNotArrived: React.FC = () => {
     if (file) setBatchFileName(file.name);
   };
 
-  // --- Handlers para Análise Avançada ---
+  // --- Handlers for Advanced Analysis ---
   const triggerAnalysisInput = () => analysisInputRef.current?.click();
 
   const handleAnalysisUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -43,7 +43,7 @@ const ShippedNotArrived: React.FC = () => {
     if (file) setAnalysisFileName(file.name);
   };
 
-  // --- Utilitários ---
+  // --- Utilities ---
   const readFile = (file: File): Promise<any[]> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -78,7 +78,7 @@ const ShippedNotArrived: React.FC = () => {
     });
   };
 
-  // Helper para encontrar nomes de colunas de forma flexível (case insensitive, trim)
+  // Helper to find column names flexibly (case insensitive, trim)
   const findColumnName = (row: any, possibleNames: string[]): string | undefined => {
     const keys = Object.keys(row);
     for (const name of possibleNames) {
@@ -88,7 +88,7 @@ const ShippedNotArrived: React.FC = () => {
     return undefined;
   };
 
-  // --- Lógica Principal: Comparação (Carregamento x Lote) ---
+  // --- Main Logic: Comparison (Loading vs Batch) ---
   const handleProcessAndDownload = async () => {
     const loadingFile = loadingInputRef.current?.files?.[0];
     const batchFile = batchInputRef.current?.files?.[0];
@@ -108,7 +108,7 @@ const ShippedNotArrived: React.FC = () => {
 
       const validLoadingOrders: any[] = [];
       
-      // Identificar coluna de pedido na primeira planilha
+      // Identify order column in loading sheet
       const firstLoadingRow = loadingData[0] || {};
       const loadingOrderCol = findColumnName(firstLoadingRow, ['Número de pedido JMS', 'Numero de pedido JMS', 'Pedido', 'Order ID']);
 
@@ -170,7 +170,7 @@ const ShippedNotArrived: React.FC = () => {
     }
   };
 
-  // --- Lógica Secundária: Análise Avançada (Rastreio Filtrado) ---
+  // --- Secondary Logic: Advanced Analysis (Filtered Tracking) ---
   const handleProcessAnalysis = async () => {
     const analysisFile = analysisInputRef.current?.files?.[0];
     
@@ -199,7 +199,7 @@ const ShippedNotArrived: React.FC = () => {
       const targetStop = 'SE AJU';
       const targetTripId = tripIdFilter.trim().toUpperCase();
 
-      // Identificar nomes corretos das colunas
+      // Identify correct column names
       const firstRow = rawData[0];
       const colBase = findColumnName(firstRow, ['Base de escaneamento', 'Scan Base', 'Base']);
       const colStop = findColumnName(firstRow, ['Parada anterior ou próxima', 'Parada anterior ou proxima', 'Next Stop']);
@@ -207,14 +207,14 @@ const ShippedNotArrived: React.FC = () => {
       const colTime = findColumnName(firstRow, ['Tempo de digitalização', 'Tempo de digitalizacao', 'Scan Time', 'Data']);
       const colOrderId = findColumnName(firstRow, ['Número de pedido JMS', 'Numero de pedido JMS', 'Pedido']);
 
-      // Validação das colunas essenciais
+      // Validation of essential columns
       if (!colBase || !colStop || !colTripId) {
         alert("Não foi possível encontrar as colunas necessárias na planilha (Base de escaneamento, Parada, Número do ID). Verifique o arquivo.");
         setIsAnalyzing(false);
         return;
       }
 
-      // 1. Filtragem Inicial
+      // 1. Initial Filtering
       let filteredData = rawData.filter((row: any) => {
         const base = String(row[colBase] || '').trim().toUpperCase();
         const stop = String(row[colStop] || '').trim().toUpperCase();
@@ -229,7 +229,8 @@ const ShippedNotArrived: React.FC = () => {
         return;
       }
 
-      // 2. Classificação: Tempo de digitalização Z a A (Descendente)
+      // 2. Sorting: Scan Time Z to A (Descending)
+      // Using safe logic to avoid TS1382 error on Vercel
       if (colTime) {
         filteredData.sort((a, b) => {
           const valA = a[colTime];
@@ -238,8 +239,11 @@ const ShippedNotArrived: React.FC = () => {
           const dateA = valA ? new Date(valA).getTime() : 0;
           const dateB = valB ? new Date(valB).getTime() : 0;
 
-          if (!isNaN(dateA) && !isNaN(dateB) && dateA !== 0 && dateB !== 0) {
-            return dateB - dateA;
+          const isValidDateA = !isNaN(dateA) && dateA !== 0;
+          const isValidDateB = !isNaN(dateB) && dateB !== 0;
+
+          if (isValidDateA && isValidDateB) {
+            return dateB - dateA; // Descending order
           }
 
           const strA = String(valA || '');
@@ -248,12 +252,12 @@ const ShippedNotArrived: React.FC = () => {
         });
       }
 
-      // 3. Remoção de Duplicatas (Mantendo o mais recente pois já ordenamos)
+      // 3. Deduplication (Keep newest because already sorted)
       const uniqueOrders = new Map();
       const finalData: any[] = [];
 
       filteredData.forEach((row: any) => {
-        // Se achou coluna de pedido, usa pra deduplicar. Se não, usa toda a linha como chave (improvável mas seguro)
+        // If order column found, use it to deduplicate. Otherwise use random (fallback)
         const uniqueKey = colOrderId ? (row[colOrderId] || Math.random()) : Math.random();
         
         if (colOrderId && uniqueKey) {
@@ -266,7 +270,7 @@ const ShippedNotArrived: React.FC = () => {
         }
       });
 
-      // 4. Exportação
+      // 4. Export
       const ws = XLSX.utils.json_to_sheet(finalData);
       ws['!cols'] = autoFitColumns(finalData);
 
@@ -290,7 +294,7 @@ const ShippedNotArrived: React.FC = () => {
 
   return (
     <div className="max-w-6xl mx-auto space-y-12 pb-12">
-      {/* Seção 1: Comparação de Faltantes */}
+      {/* Section 1: Missing Orders Comparison */}
       <div className="bg-white p-8 rounded-xl border border-slate-200 shadow-sm">
         <div className="text-center mb-10">
           <h2 className="text-2xl font-bold text-slate-800">1. Expedido Mas Não Chegou</h2>
@@ -300,7 +304,7 @@ const ShippedNotArrived: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-          {/* Card 1: Importar Carregamento */}
+          {/* Card 1: Import Loading */}
           <div className="flex flex-col h-full">
             <div className="bg-blue-50 border border-blue-100 rounded-t-xl p-4 flex items-center gap-3">
               <div className="bg-blue-100 p-2 rounded-lg">
@@ -337,7 +341,7 @@ const ShippedNotArrived: React.FC = () => {
             </div>
           </div>
 
-          {/* Card 2: Importar Lote */}
+          {/* Card 2: Import Batch */}
           <div className="flex flex-col h-full">
             <div className="bg-orange-50 border border-orange-100 rounded-t-xl p-4 flex items-center gap-3">
               <div className="bg-orange-100 p-2 rounded-lg">
@@ -393,17 +397,17 @@ const ShippedNotArrived: React.FC = () => {
         </div>
       </div>
 
-      {/* Seção 2: Análise Avançada de Rastreio */}
+      {/* Section 2: Advanced Tracking Analysis */}
       <div className="bg-white p-8 rounded-xl border border-slate-200 shadow-sm border-t-4 border-t-purple-500">
         <div className="text-center mb-8">
           <h2 className="text-2xl font-bold text-slate-800">2. Análise Avançada de Rastreio</h2>
           <p className="text-slate-500 mt-2 max-w-2xl mx-auto">
-            Filtra registros SP BRE -> SE AJU, ordena por tempo (Z-A) e remove duplicatas com base no ID da viagem.
+            Filtra registros SP BRE - SE AJU, ordena por tempo (Z-A) e remove duplicatas com base no ID da viagem.
           </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-end">
-          {/* Input ID Viagem */}
+          {/* Input ID Trip */}
           <div className="flex-1">
             <label className="block text-sm font-medium text-slate-700 mb-2">ID da Viagem (Filtro)</label>
             <div className="relative">
@@ -418,7 +422,7 @@ const ShippedNotArrived: React.FC = () => {
             </div>
           </div>
 
-          {/* Upload Planilha */}
+          {/* Upload File */}
           <div className="flex-1">
             <label className="block text-sm font-medium text-slate-700 mb-2">Relatório de Bipagem</label>
             <input 
@@ -441,7 +445,7 @@ const ShippedNotArrived: React.FC = () => {
             </div>
           </div>
 
-          {/* Botão Ação */}
+          {/* Action Button */}
           <div className="flex-1">
              <button
               onClick={handleProcessAnalysis}
