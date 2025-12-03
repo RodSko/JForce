@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { FileSpreadsheet, Truck, Package, Download, Loader2, Search, FileSearch } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
-// --- Helper Functions (Definidas fora do componente para evitar erros de parser no Vercel) ---
+// --- Helper Functions ---
 
 const readFile = (file: File): Promise<any[]> => {
   return new Promise((resolve, reject) => {
@@ -48,7 +48,6 @@ const findColumnName = (row: any, possibleNames: string[]): string | undefined =
 };
 
 // Lógica de comparação segura para Z-A (Decrescente)
-// Extraída para evitar erro TS1382 no Vercel
 const compareRecords = (a: any, b: any, colTime: string | undefined): number => {
   if (!colTime) return 0;
 
@@ -399,7 +398,7 @@ const ShippedNotArrived: React.FC = () => {
       {/* Seção 2: Análise Avançada de Rastreio */}
       <div className="bg-white p-8 rounded-xl border border-slate-200 shadow-sm border-t-4 border-t-purple-500">
         <div className="text-center mb-8">
-          <h2 className="text-2xl font-bold text-slate-800">2. Análise Avançada de Rastreio (Novo)</h2>
+          <h2 className="text-2xl font-bold text-slate-800">2. Análise Avançada de Rastreio</h2>
           <p className="text-slate-500 mt-2 max-w-2xl mx-auto">
             Filtra registros SP BRE - SE AJU, ordena por tempo (Z-A) e remove duplicatas com base no ID da viagem.
           </p>
