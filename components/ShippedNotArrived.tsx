@@ -235,19 +235,15 @@ const ShippedNotArrived: React.FC = () => {
           const valA = a[colTime];
           const valB = b[colTime];
           
-          // Tentar criar objetos Date para comparação precisa
           const dateA = valA ? new Date(valA).getTime() : 0;
           const dateB = valB ? new Date(valB).getTime() : 0;
 
-          // Se for uma data válida, usa timestamp
           if (!isNaN(dateA) && !isNaN(dateB) && dateA !== 0 && dateB !== 0) {
-            return dateB - dateA; // Decrescente (Mais novo primeiro)
+            return dateB - dateA;
           }
 
-          // Fallback para string comparison (usando localeCompare para evitar erro de JSX)
           const strA = String(valA || '');
           const strB = String(valB || '');
-          // Retorna positivo se strB > strA (decrescente)
           return strB.localeCompare(strA);
         });
       }
