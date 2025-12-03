@@ -37,11 +37,15 @@ const Reports: React.FC<Props> = ({ history, employees }) => {
   const operationalData = useMemo(() => {
     return filteredHistory
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-      .map(rec => ({
-        date: new Date(rec.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
-        volume: rec.volume,
-        trucks: rec.trucks
-      }));
+      .map(rec => {
+        // Fix timezone issue for chart labels using string split
+        const [year, month, day] = rec.date.split('-');
+        return {
+          date: `${day}/${month}`,
+          volume: rec.volume,
+          trucks: rec.trucks
+        };
+      });
   }, [filteredHistory]);
 
   // 2. Prepare Heatmap data (Employee vs Task Category count)
@@ -95,7 +99,7 @@ const Reports: React.FC<Props> = ({ history, employees }) => {
           allTrips.push({
             date: day.date,
             id: trip.id,
-            unsealed: trip.unsealed,
+            unsealed: !!trip.unsealed, // Force boolean conversion
             timestamp: trip.unsealTimestamp
           });
         });
@@ -103,6 +107,17 @@ const Reports: React.FC<Props> = ({ history, employees }) => {
     });
     return allTrips;
   }, [filteredHistory]);
+
+  // Helper para formatar data evitando problemas de timezone (UTC vs Local)
+  const formatDate = (dateString: string) => {
+    if (!dateString) return '-';
+    const parts = dateString.split('-');
+    if (parts.length === 3) {
+      const [year, month, day] = parts;
+      return `${day}/${month}/${year}`;
+    }
+    return dateString;
+  };
 
   return (
     <div className="space-y-8">
@@ -245,7 +260,7 @@ const Reports: React.FC<Props> = ({ history, employees }) => {
               {tripsData.map((trip, idx) => (
                 <tr key={`${trip.id}-${idx}`} className="hover:bg-slate-50">
                   <td className="px-6 py-3 font-medium text-slate-700">
-                    {new Date(trip.date).toLocaleDateString('pt-BR')}
+                    {formatDate(trip.date)}
                   </td>
                   <td className="px-6 py-3 font-mono text-slate-600">
                     {trip.id}
@@ -260,7 +275,7 @@ const Reports: React.FC<Props> = ({ history, employees }) => {
                       {trip.unsealed ? 'Deslacrada' : 'Lacrada'}
                     </span>
                   </td>
-                  <td className="px-6 py-3 text-right text-slate-500">
+                  <td className="px-6 py-3 text-right text-slate-500 font-mono">
                     {trip.timestamp ? trip.timestamp : '-'}
                   </td>
                 </tr>

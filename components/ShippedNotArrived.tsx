@@ -48,6 +48,7 @@ const findColumnName = (row: any, possibleNames: string[]): string | undefined =
 };
 
 // Lógica de comparação segura para Z-A (Decrescente)
+// Extraída para evitar erro TS1382 no Vercel
 const compareRecords = (a: any, b: any, colTime: string | undefined): number => {
   if (!colTime) return 0;
 
