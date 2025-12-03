@@ -2,6 +2,73 @@ import React, { useRef, useState } from 'react';
 import { Upload, FileSpreadsheet, Truck, Package, Download, Loader2, Search, FileSearch } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
+// --- Helper Functions (Defined outside component to avoid TSX parser issues) ---
+
+const readFile = (file: File): Promise<any[]> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = e.target?.result;
+        const workbook = XLSX.read(data, { type: 'binary' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+        resolve(jsonData as any[]);
+      } catch (error) {
+        reject(error);
+      }
+    };
+    reader.onerror = (error) => reject(error);
+    reader.readAsBinaryString(file);
+  });
+};
+
+const autoFitColumns = (data: any[]) => {
+  if (data.length === 0) return [];
+  return Object.keys(data[0]).map(key => {
+    let maxLen = key.length;
+    const limit = Math.min(data.length, 500);
+    for (let i = 0; i < limit; i++) {
+      const value = data[i][key];
+      const len = value ? String(value).length : 0;
+      if (len > maxLen) maxLen = len;
+    }
+    return { wch: Math.min(maxLen + 5, 60) };
+  });
+};
+
+const findColumnName = (row: any, possibleNames: string[]): string | undefined => {
+  const keys = Object.keys(row);
+  for (const name of possibleNames) {
+    const found = keys.find(k => k.trim().toLowerCase() === name.toLowerCase());
+    if (found) return found;
+  }
+  return undefined;
+};
+
+// Função de comparação isolada para evitar erros de sintaxe no Vercel
+const compareRecords = (a: any, b: any, colTime: string | undefined): number => {
+  if (!colTime) return 0;
+
+  const valA = a[colTime];
+  const valB = b[colTime];
+  
+  const dateA = valA ? new Date(valA).getTime() : 0;
+  const dateB = valB ? new Date(valB).getTime() : 0;
+
+  const isValidDateA = !isNaN(dateA) && dateA !== 0;
+  const isValidDateB = !isNaN(dateB) && dateB !== 0;
+
+  if (isValidDateA && isValidDateB) {
+    return dateB - dateA; // Decrescente (Mais novo primeiro)
+  }
+
+  const strA = String(valA || '');
+  const strB = String(valB || '');
+  return strB.localeCompare(strA);
+};
+
 const ShippedNotArrived: React.FC = () => {
   // Refs for Initial Comparison
   const loadingInputRef = useRef<HTMLInputElement>(null);
@@ -43,51 +110,6 @@ const ShippedNotArrived: React.FC = () => {
     if (file) setAnalysisFileName(file.name);
   };
 
-  // --- Utilities ---
-  const readFile = (file: File): Promise<any[]> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const data = e.target?.result;
-          const workbook = XLSX.read(data, { type: 'binary' });
-          const firstSheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[firstSheetName];
-          const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
-          resolve(jsonData as any[]);
-        } catch (error) {
-          reject(error);
-        }
-      };
-      reader.onerror = (error) => reject(error);
-      reader.readAsBinaryString(file);
-    });
-  };
-
-  const autoFitColumns = (data: any[]) => {
-    if (data.length === 0) return [];
-    return Object.keys(data[0]).map(key => {
-      let maxLen = key.length;
-      const limit = Math.min(data.length, 500);
-      for (let i = 0; i < limit; i++) {
-        const value = data[i][key];
-        const len = value ? String(value).length : 0;
-        if (len > maxLen) maxLen = len;
-      }
-      return { wch: Math.min(maxLen + 5, 60) };
-    });
-  };
-
-  // Helper to find column names flexibly (case insensitive, trim)
-  const findColumnName = (row: any, possibleNames: string[]): string | undefined => {
-    const keys = Object.keys(row);
-    for (const name of possibleNames) {
-      const found = keys.find(k => k.trim().toLowerCase() === name.toLowerCase());
-      if (found) return found;
-    }
-    return undefined;
-  };
-
   // --- Main Logic: Comparison (Loading vs Batch) ---
   const handleProcessAndDownload = async () => {
     const loadingFile = loadingInputRef.current?.files?.[0];
@@ -108,7 +130,6 @@ const ShippedNotArrived: React.FC = () => {
 
       const validLoadingOrders: any[] = [];
       
-      // Identify order column in loading sheet
       const firstLoadingRow = loadingData[0] || {};
       const loadingOrderCol = findColumnName(firstLoadingRow, ['Número de pedido JMS', 'Numero de pedido JMS', 'Pedido', 'Order ID']);
 
@@ -199,7 +220,6 @@ const ShippedNotArrived: React.FC = () => {
       const targetStop = 'SE AJU';
       const targetTripId = tripIdFilter.trim().toUpperCase();
 
-      // Identify correct column names
       const firstRow = rawData[0];
       const colBase = findColumnName(firstRow, ['Base de escaneamento', 'Scan Base', 'Base']);
       const colStop = findColumnName(firstRow, ['Parada anterior ou próxima', 'Parada anterior ou proxima', 'Next Stop']);
@@ -207,7 +227,6 @@ const ShippedNotArrived: React.FC = () => {
       const colTime = findColumnName(firstRow, ['Tempo de digitalização', 'Tempo de digitalizacao', 'Scan Time', 'Data']);
       const colOrderId = findColumnName(firstRow, ['Número de pedido JMS', 'Numero de pedido JMS', 'Pedido']);
 
-      // Validation of essential columns
       if (!colBase || !colStop || !colTripId) {
         alert("Não foi possível encontrar as colunas necessárias na planilha (Base de escaneamento, Parada, Número do ID). Verifique o arquivo.");
         setIsAnalyzing(false);
@@ -229,35 +248,16 @@ const ShippedNotArrived: React.FC = () => {
         return;
       }
 
-      // 2. Sorting: Scan Time Z to A (Descending)
-      // Using safe logic to avoid TS1382 error on Vercel
+      // 2. Sorting using external helper
       if (colTime) {
-        filteredData.sort((a, b) => {
-          const valA = a[colTime];
-          const valB = b[colTime];
-          
-          const dateA = valA ? new Date(valA).getTime() : 0;
-          const dateB = valB ? new Date(valB).getTime() : 0;
-
-          const isValidDateA = !isNaN(dateA) && dateA !== 0;
-          const isValidDateB = !isNaN(dateB) && dateB !== 0;
-
-          if (isValidDateA && isValidDateB) {
-            return dateB - dateA; // Descending order
-          }
-
-          const strA = String(valA || '');
-          const strB = String(valB || '');
-          return strB.localeCompare(strA);
-        });
+        filteredData.sort((a, b) => compareRecords(a, b, colTime));
       }
 
-      // 3. Deduplication (Keep newest because already sorted)
+      // 3. Deduplication
       const uniqueOrders = new Map();
       const finalData: any[] = [];
 
       filteredData.forEach((row: any) => {
-        // If order column found, use it to deduplicate. Otherwise use random (fallback)
         const uniqueKey = colOrderId ? (row[colOrderId] || Math.random()) : Math.random();
         
         if (colOrderId && uniqueKey) {
@@ -280,9 +280,7 @@ const ShippedNotArrived: React.FC = () => {
       const fileName = `analise_rastreio_${targetTripId}_${new Date().toISOString().split('T')[0]}.xlsx`;
       XLSX.writeFile(wb, fileName);
 
-      // Feedback
-      const msg = `Análise concluída!\n\nRegistros filtrados: ${filteredData.length}\nRegistros únicos (exportados): ${finalData.length}`;
-      alert(msg);
+      alert(`Análise concluída!\n\nRegistros filtrados: ${filteredData.length}\nRegistros únicos (exportados): ${finalData.length}`);
 
     } catch (error) {
       console.error("Erro na análise:", error);
@@ -294,7 +292,7 @@ const ShippedNotArrived: React.FC = () => {
 
   return (
     <div className="max-w-6xl mx-auto space-y-12 pb-12">
-      {/* Section 1: Missing Orders Comparison */}
+      {/* Seção 1: Comparação de Faltantes */}
       <div className="bg-white p-8 rounded-xl border border-slate-200 shadow-sm">
         <div className="text-center mb-10">
           <h2 className="text-2xl font-bold text-slate-800">1. Expedido Mas Não Chegou</h2>
@@ -397,7 +395,7 @@ const ShippedNotArrived: React.FC = () => {
         </div>
       </div>
 
-      {/* Section 2: Advanced Tracking Analysis */}
+      {/* Seção 2: Análise Avançada de Rastreio */}
       <div className="bg-white p-8 rounded-xl border border-slate-200 shadow-sm border-t-4 border-t-purple-500">
         <div className="text-center mb-8">
           <h2 className="text-2xl font-bold text-slate-800">2. Análise Avançada de Rastreio</h2>
@@ -407,7 +405,7 @@ const ShippedNotArrived: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-end">
-          {/* Input ID Trip */}
+          {/* Input ID Viagem */}
           <div className="flex-1">
             <label className="block text-sm font-medium text-slate-700 mb-2">ID da Viagem (Filtro)</label>
             <div className="relative">
@@ -422,7 +420,7 @@ const ShippedNotArrived: React.FC = () => {
             </div>
           </div>
 
-          {/* Upload File */}
+          {/* Upload Planilha */}
           <div className="flex-1">
             <label className="block text-sm font-medium text-slate-700 mb-2">Relatório de Bipagem</label>
             <input 
@@ -445,7 +443,7 @@ const ShippedNotArrived: React.FC = () => {
             </div>
           </div>
 
-          {/* Action Button */}
+          {/* Botão Ação */}
           <div className="flex-1">
              <button
               onClick={handleProcessAnalysis}
