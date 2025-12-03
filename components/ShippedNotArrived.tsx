@@ -291,7 +291,7 @@ const ShippedNotArrived: React.FC = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-12 pb-12">
+    <div className="max-w-6xl mx-auto space-y-12 pb-20">
       {/* Seção 1: Comparação de Faltantes */}
       <div className="bg-white p-8 rounded-xl border border-slate-200 shadow-sm">
         <div className="text-center mb-10">
@@ -396,7 +396,7 @@ const ShippedNotArrived: React.FC = () => {
       </div>
 
       {/* Seção 2: Análise Avançada de Rastreio */}
-      <div className="bg-white p-8 rounded-xl border border-slate-200 shadow-sm border-t-4 border-t-purple-500">
+      <div id="advanced-analysis-section" className="bg-white p-8 rounded-xl border border-slate-200 shadow-sm border-t-4 border-t-purple-500">
         <div className="text-center mb-8">
           <h2 className="text-2xl font-bold text-slate-800">2. Análise Avançada de Rastreio</h2>
           <p className="text-slate-500 mt-2 max-w-2xl mx-auto">
