@@ -247,7 +247,7 @@ const ShippedNotArrived: React.FC = () => {
           // Fallback para string comparison (usando localeCompare para evitar erro de JSX)
           const strA = String(valA || '');
           const strB = String(valB || '');
-          // Retorna positivo se strB > strA, negativo se strB < strA (ordem decrescente Z-A)
+          // Retorna positivo se strB > strA (decrescente)
           return strB.localeCompare(strA);
         });
       }
