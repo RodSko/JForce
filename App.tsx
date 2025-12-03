@@ -214,9 +214,7 @@ function App() {
         />
       )}
       {view === 'generate' && (
-        <GenerateReport 
-          history={history}
-        />
+        <GenerateReport />
       )}
       {view === 'shipped' && (
         <ShippedNotArrived />
