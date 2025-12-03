@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { Upload, FileSpreadsheet, Truck, Package, Download, Loader2, Search, FileSearch } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
-// --- Helper Functions (Defined outside component to avoid TSX parser issues) ---
+// --- Helper Functions (Definidas fora do componente para evitar erros de parser no Vercel) ---
 
 const readFile = (file: File): Promise<any[]> => {
   return new Promise((resolve, reject) => {
@@ -47,7 +47,7 @@ const findColumnName = (row: any, possibleNames: string[]): string | undefined =
   return undefined;
 };
 
-// Função de comparação isolada para evitar erros de sintaxe no Vercel
+// Lógica de comparação segura para Z-A (Decrescente)
 const compareRecords = (a: any, b: any, colTime: string | undefined): number => {
   if (!colTime) return 0;
 
@@ -61,7 +61,7 @@ const compareRecords = (a: any, b: any, colTime: string | undefined): number => 
   const isValidDateB = !isNaN(dateB) && dateB !== 0;
 
   if (isValidDateA && isValidDateB) {
-    return dateB - dateA; // Decrescente (Mais novo primeiro)
+    return dateB - dateA; // Decrescente (Mais recente primeiro)
   }
 
   const strA = String(valA || '');
@@ -70,25 +70,25 @@ const compareRecords = (a: any, b: any, colTime: string | undefined): number => 
 };
 
 const ShippedNotArrived: React.FC = () => {
-  // Refs for Initial Comparison
+  // Refs Seção 1
   const loadingInputRef = useRef<HTMLInputElement>(null);
   const batchInputRef = useRef<HTMLInputElement>(null);
   
-  // Ref for Advanced Analysis
+  // Ref Seção 2
   const analysisInputRef = useRef<HTMLInputElement>(null);
   
-  // States Initial Comparison
+  // Estados Seção 1
   const [loadingFileName, setLoadingFileName] = useState<string | null>(null);
   const [batchFileName, setBatchFileName] = useState<string | null>(null);
   
-  // States Advanced Analysis
+  // Estados Seção 2
   const [analysisFileName, setAnalysisFileName] = useState<string | null>(null);
   const [tripIdFilter, setTripIdFilter] = useState<string>('');
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  // --- Handlers for Initial Comparison ---
+  // --- Handlers Seção 1 ---
   const triggerLoadingInput = () => loadingInputRef.current?.click();
   const triggerBatchInput = () => batchInputRef.current?.click();
 
@@ -102,7 +102,7 @@ const ShippedNotArrived: React.FC = () => {
     if (file) setBatchFileName(file.name);
   };
 
-  // --- Handlers for Advanced Analysis ---
+  // --- Handlers Seção 2 ---
   const triggerAnalysisInput = () => analysisInputRef.current?.click();
 
   const handleAnalysisUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -110,7 +110,7 @@ const ShippedNotArrived: React.FC = () => {
     if (file) setAnalysisFileName(file.name);
   };
 
-  // --- Main Logic: Comparison (Loading vs Batch) ---
+  // --- Lógica Seção 1: Comparação ---
   const handleProcessAndDownload = async () => {
     const loadingFile = loadingInputRef.current?.files?.[0];
     const batchFile = batchInputRef.current?.files?.[0];
@@ -191,7 +191,7 @@ const ShippedNotArrived: React.FC = () => {
     }
   };
 
-  // --- Secondary Logic: Advanced Analysis (Filtered Tracking) ---
+  // --- Lógica Seção 2: Análise Avançada ---
   const handleProcessAnalysis = async () => {
     const analysisFile = analysisInputRef.current?.files?.[0];
     
@@ -233,7 +233,7 @@ const ShippedNotArrived: React.FC = () => {
         return;
       }
 
-      // 1. Initial Filtering
+      // 1. Filtragem Inicial
       let filteredData = rawData.filter((row: any) => {
         const base = String(row[colBase] || '').trim().toUpperCase();
         const stop = String(row[colStop] || '').trim().toUpperCase();
@@ -248,12 +248,12 @@ const ShippedNotArrived: React.FC = () => {
         return;
       }
 
-      // 2. Sorting using external helper
+      // 2. Ordenação (Z a A)
       if (colTime) {
         filteredData.sort((a, b) => compareRecords(a, b, colTime));
       }
 
-      // 3. Deduplication
+      // 3. Deduplicação (Mantém o primeiro/mais recente)
       const uniqueOrders = new Map();
       const finalData: any[] = [];
 
@@ -270,7 +270,7 @@ const ShippedNotArrived: React.FC = () => {
         }
       });
 
-      // 4. Export
+      // 4. Exportação
       const ws = XLSX.utils.json_to_sheet(finalData);
       ws['!cols'] = autoFitColumns(finalData);
 
@@ -302,7 +302,7 @@ const ShippedNotArrived: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-          {/* Card 1: Import Loading */}
+          {/* Card 1: Importar Carregamento */}
           <div className="flex flex-col h-full">
             <div className="bg-blue-50 border border-blue-100 rounded-t-xl p-4 flex items-center gap-3">
               <div className="bg-blue-100 p-2 rounded-lg">
@@ -339,7 +339,7 @@ const ShippedNotArrived: React.FC = () => {
             </div>
           </div>
 
-          {/* Card 2: Import Batch */}
+          {/* Card 2: Importar Lote */}
           <div className="flex flex-col h-full">
             <div className="bg-orange-50 border border-orange-100 rounded-t-xl p-4 flex items-center gap-3">
               <div className="bg-orange-100 p-2 rounded-lg">
