@@ -414,7 +414,7 @@ const GenerateReport: React.FC<Props> = () => {
 
       <div className="print:hidden space-y-8">
         <div className="bg-indigo-900 rounded-2xl p-8 text-white shadow-xl bg-[url('https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80')] bg-cover bg-center bg-blend-overlay bg-opacity-90">
-          <h2 className="text-3xl font-bold mb-2">Central de Relatórios</h2>
+          <h2 className="text-3xl font-bold mb-2">Relatório de Carregamento</h2>
           <p className="text-indigo-100 max-w-xl">
             Importe a planilha para gerar os cartões de carregamento visual.
           </p>
@@ -524,7 +524,7 @@ const GenerateReport: React.FC<Props> = () => {
                       <img 
                         src={vehiclePhotos[item.id]} 
                         alt={`Veículo ${item.id}`} 
-                        className="max-w-full max-h-full w-auto h-auto"
+                        className="max-w-full max-h-full w-auto h-auto object-contain"
                       />
                     ) : (
                       <>

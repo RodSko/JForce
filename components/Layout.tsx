@@ -1,7 +1,7 @@
 import React from 'react';
-import { LayoutDashboard, Users, BarChart3, Boxes, FileText, Truck } from 'lucide-react';
+import { LayoutDashboard, Users, BarChart3, Boxes, FileText, Truck, ClipboardList } from 'lucide-react';
 
-type View = 'daily' | 'team' | 'reports' | 'generate' | 'shipped';
+type View = 'daily' | 'team' | 'reports' | 'generate' | 'shipped' | 'management';
 
 interface Props {
   currentView: View;
@@ -13,7 +13,8 @@ const Layout: React.FC<Props> = ({ currentView, onChangeView, children }) => {
   const navItems = [
     { id: 'daily', label: 'Operação Diária', icon: LayoutDashboard },
     { id: 'reports', label: 'Relatórios & Métricas', icon: BarChart3 },
-    { id: 'generate', label: 'Gerar Report', icon: FileText },
+    { id: 'generate', label: 'Gerar Report Carregamento', icon: FileText },
+    { id: 'management', label: 'Gerar Report Gestão', icon: ClipboardList },
     { id: 'shipped', label: 'Expedido Mas Não Chegou', icon: Truck },
     { id: 'team', label: 'Equipe', icon: Users },
   ] as const;
@@ -54,7 +55,7 @@ const Layout: React.FC<Props> = ({ currentView, onChangeView, children }) => {
         </div>
         
         <div className="p-6 border-t border-slate-800">
-          <p className="text-xs text-slate-500">v1.0.0 &bull; Logística</p>
+          <p className="text-xs text-slate-500">v1.1.0 &bull; Logística</p>
         </div>
       </nav>
 
