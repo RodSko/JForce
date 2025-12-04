@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2, Loader2, Play, Package, Layers, RefreshCw, Users, Briefcase, UserX, Palmtree, MapPin, Calendar, Clock, Plus, Trash2, Truck, Send, ArrowRight } from 'lucide-react';
+import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2, Loader2, Play, Package, Layers, RefreshCw, Users, Briefcase, UserX, Palmtree, MapPin, Calendar, Clock, Plus, Trash2, Truck, Send, ArrowRight, AlertTriangle, ArrowLeftRight, PackageX, Ban, Copy, Check } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { DailyRecord } from '../types';
 
@@ -64,14 +64,23 @@ const ManagementReport: React.FC<Props> = ({ history = [] }) => {
   // Data do Report
   const [reportDate, setReportDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
-  // Configuração de inputs
+  // Configuração de inputs (Equipe)
   const [plannedEmployees, setPlannedEmployees] = useState<number>(17);
   const [outsourcedEmployees, setOutsourcedEmployees] = useState<number>(0);
   const [absentEmployees, setAbsentEmployees] = useState<number>(0);
   const [vacationEmployees, setVacationEmployees] = useState<number>(0);
 
+  // Configuração de inputs (Anormalidades)
+  const [shippedNotArrived, setShippedNotArrived] = useState<number>(0);
+  const [sortingErrors, setSortingErrors] = useState<number>(0);
+  const [damages, setDamages] = useState<number>(0);
+  const [barred, setBarred] = useState<number>(0);
+
   // Viagens
   const [trips, setTrips] = useState<ManagementTrip[]>([]);
+  
+  // Estado para botão de copiar
+  const [textCopied, setTextCopied] = useState(false);
   
   // Carregar dados iniciais do histórico quando a data muda
   useEffect(() => {
@@ -98,6 +107,10 @@ const ManagementReport: React.FC<Props> = ({ history = [] }) => {
     outsourced: number;
     absent: number;
     vacation: number;
+    shippedNotArrived: number;
+    sortingErrors: number;
+    damages: number;
+    barred: number;
     trips: ManagementTrip[];
   } | null>(null);
 
@@ -235,6 +248,10 @@ const ManagementReport: React.FC<Props> = ({ history = [] }) => {
         outsourced: outsourcedEmployees,
         absent: absentEmployees,
         vacation: vacationEmployees,
+        shippedNotArrived: shippedNotArrived,
+        sortingErrors: sortingErrors,
+        damages: damages,
+        barred: barred,
         trips: trips
       });
 
@@ -246,6 +263,67 @@ const ManagementReport: React.FC<Props> = ({ history = [] }) => {
       setStatus('error');
       setMessage(err.message || 'Erro ao processar arquivos.');
     }
+  };
+
+  const formatSummaryDate = (isoDate: string) => {
+    const [year, month, day] = isoDate.split('-');
+    return `${day}-${month}-${year}`;
+  };
+
+  const formatZero = (num: number) => {
+    return num === 0 ? "00" : num.toLocaleString('pt-BR');
+  };
+
+  const generateSummaryText = () => {
+    if (!results) return '';
+
+    const dateStr = formatSummaryDate(reportDate);
+    
+    let text = `Operação finalizada SE AJU - ${dateStr}\n\n`;
+
+    text += `Quantidade de Pacotes Processados: ${results.processed.toLocaleString('pt-BR')}\n`;
+    text += `Quantidade de Pacotes Múltiplos: ${results.multiple.toLocaleString('pt-BR')}\n`;
+    text += `Quantidade de colaboradores planejados: ${results.planned}\n`;
+    text += `Quantidade de terceirizados: ${formatZero(results.outsourced)}\n`;
+    text += `Quantidade de colaboradores em folga/falta: ${formatZero(results.absent)}\n`;
+    text += `Quantidade de colaboradores em férias: ${formatZero(results.vacation)}\n\n`;
+
+    text += `IDs do dia e horário de chegada:\n\n`;
+    
+    if (results.trips.length > 0) {
+      results.trips.forEach(trip => {
+        text += `ID: ${trip.id} - ${trip.route} - Horário de chegada: ${trip.datetime}\n`;
+      });
+    } else {
+      text += `(Nenhuma viagem registrada)\n`;
+    }
+
+    text += `\nQuantidade de pacotes expedidos:\n\n`;
+    
+    if (Object.keys(results.shippedByBase).length > 0) {
+      Object.entries(results.shippedByBase)
+        .sort(([, a], [, b]) => (b as number) - (a as number))
+        .forEach(([base, count]) => {
+          text += `${base}: ${count}\n`;
+        });
+    } else {
+       text += `0\n`;
+    }
+
+    text += `\nAnormalidades:\n\n`;
+    text += `Expediu mas não chegou: ${formatZero(results.shippedNotArrived)}\n`;
+    text += `Erro de triagem no SC: ${formatZero(results.sortingErrors)}\n`;
+    text += `Avarias: ${formatZero(results.damages)}\n`;
+    text += `Barrados: ${formatZero(results.barred)}`;
+
+    return text;
+  };
+
+  const copyToClipboard = () => {
+    const text = generateSummaryText();
+    navigator.clipboard.writeText(text);
+    setTextCopied(true);
+    setTimeout(() => setTextCopied(false), 2000);
   };
 
   return (
@@ -373,6 +451,37 @@ const ManagementReport: React.FC<Props> = ({ history = [] }) => {
               </div>
             </div>
 
+            {/* Grid de Anormalidades / Qualidade */}
+            <h4 className="text-lg font-bold text-slate-800 mt-8 mb-4 flex items-center gap-2 border-t pt-6 border-slate-100">
+               <AlertTriangle className="w-5 h-5 text-amber-500" /> Indicadores de Anormalidades
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+               {/* Expediu mas não chegou */}
+               <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 flex flex-col items-center text-center">
+                  <p className="text-sm font-bold text-amber-800 mb-1">Expediu mas não chegou</p>
+                  <p className="text-3xl font-bold text-slate-800">{results.shippedNotArrived}</p>
+               </div>
+               
+               {/* Erro de Triagem */}
+               <div className="bg-rose-50 border border-rose-200 rounded-xl p-5 flex flex-col items-center text-center">
+                  <p className="text-sm font-bold text-rose-800 mb-1">Erro de Triagem SC</p>
+                  <p className="text-3xl font-bold text-slate-800">{results.sortingErrors}</p>
+               </div>
+
+               {/* Avarias */}
+               <div className="bg-red-50 border border-red-200 rounded-xl p-5 flex flex-col items-center text-center">
+                  <p className="text-sm font-bold text-red-800 mb-1">Avarias</p>
+                  <p className="text-3xl font-bold text-slate-800">{results.damages}</p>
+               </div>
+
+               {/* Barrados */}
+               <div className="bg-slate-100 border border-slate-300 rounded-xl p-5 flex flex-col items-center text-center">
+                  <p className="text-sm font-bold text-slate-700 mb-1">Barrados</p>
+                  <p className="text-3xl font-bold text-slate-800">{results.barred}</p>
+               </div>
+            </div>
+
+
             {/* Detalhamento de Expedição por Base (NOVO) */}
             {Object.keys(results.shippedByBase).length > 0 && (
               <div className="bg-teal-50/50 border border-teal-100 rounded-xl p-6 mt-6">
@@ -392,7 +501,26 @@ const ManagementReport: React.FC<Props> = ({ history = [] }) => {
               </div>
             )}
 
-            <div className="bg-slate-50 p-4 rounded-lg text-sm text-slate-600 border border-slate-200">
+            {/* Gerador de Texto para Cópia (NOVO) */}
+            <div className="bg-slate-100 p-6 rounded-xl border border-slate-200 mt-8 relative group">
+              <div className="flex items-center justify-between mb-4">
+                 <h4 className="font-bold text-slate-700 flex items-center gap-2">
+                   <Copy className="w-4 h-4" /> Resumo para Divulgação
+                 </h4>
+                 <button 
+                  onClick={copyToClipboard}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-slate-700 border border-slate-300 rounded-lg text-xs font-medium hover:bg-slate-50 hover:text-indigo-600 transition-colors shadow-sm"
+                 >
+                   {textCopied ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
+                   {textCopied ? 'Copiado!' : 'Copiar Texto'}
+                 </button>
+              </div>
+              <pre className="font-mono text-sm text-slate-800 whitespace-pre-wrap leading-relaxed bg-white/50 p-4 rounded-lg border border-slate-200 overflow-auto max-h-[500px]">
+                {generateSummaryText()}
+              </pre>
+            </div>
+
+            <div className="bg-slate-50 p-4 rounded-lg text-sm text-slate-600 border border-slate-200 mt-8">
               <p><span className="font-semibold">Planilha Processados:</span> {selectedProcessedFile?.name}</p>
               {selectedShippedFile && (
                 <p className="mt-1"><span className="font-semibold">Planilha Expedidos:</span> {selectedShippedFile.name}</p>
@@ -499,6 +627,45 @@ const ManagementReport: React.FC<Props> = ({ history = [] }) => {
                  <div>
                    <label className="block text-xs font-bold text-slate-600 mb-1">Férias</label>
                    <input type="number" min="0" value={vacationEmployees} onChange={(e) => setVacationEmployees(Number(e.target.value))} className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500" />
+                 </div>
+               </div>
+            </div>
+
+            {/* Configuração de Anormalidades */}
+            <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
+               <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                 <AlertTriangle className="w-5 h-5 text-amber-500" />
+                 Indicadores de Qualidade / Anormalidades
+               </h3>
+               
+               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                 <div>
+                   <label className="block text-xs font-bold text-slate-600 mb-1">Expediu mas não chegou</label>
+                   <div className="relative">
+                     <input type="number" min="0" value={shippedNotArrived} onChange={(e) => setShippedNotArrived(Number(e.target.value))} className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500" />
+                     <Truck className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                   </div>
+                 </div>
+                 <div>
+                   <label className="block text-xs font-bold text-slate-600 mb-1">Erro de triagem SC</label>
+                   <div className="relative">
+                     <input type="number" min="0" value={sortingErrors} onChange={(e) => setSortingErrors(Number(e.target.value))} className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500" />
+                     <ArrowLeftRight className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                   </div>
+                 </div>
+                 <div>
+                   <label className="block text-xs font-bold text-slate-600 mb-1">Avarias</label>
+                   <div className="relative">
+                     <input type="number" min="0" value={damages} onChange={(e) => setDamages(Number(e.target.value))} className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500" />
+                     <PackageX className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                   </div>
+                 </div>
+                 <div>
+                   <label className="block text-xs font-bold text-slate-600 mb-1">Barrados</label>
+                   <div className="relative">
+                     <input type="number" min="0" value={barred} onChange={(e) => setBarred(Number(e.target.value))} className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500" />
+                     <Ban className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                   </div>
                  </div>
                </div>
             </div>
