@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { DailyRecord, Employee, TaskDefinition, Assignment, TripInfo } from '../types';
 import { TASK_DEFINITIONS } from '../constants';
 import AssignmentCard from './AssignmentCard';
-import { Save, Sparkles, Loader2, Calendar, Unlock, Lock, Container, Plus, Trash2 } from 'lucide-react';
+import { Save, Sparkles, Loader2, Calendar, Unlock, Lock, Container, Plus, Trash2, Clock, AlertTriangle, X } from 'lucide-react';
 import { generateScheduleSuggestion } from '../services/geminiService';
 
 interface Props {
@@ -19,6 +19,7 @@ const DailyOperations: React.FC<Props> = ({ employees, history, onSaveRecord }) 
   
   // State for Trips (Dynamic)
   const [trips, setTrips] = useState<TripInfo[]>([]);
+  const [notifications, setNotifications] = useState<string[]>([]);
 
   const [loadingAI, setLoadingAI] = useState(false);
   const [aiRationale, setAiRationale] = useState<string | null>(null);
@@ -39,6 +40,39 @@ const DailyOperations: React.FC<Props> = ({ employees, history, onSaveRecord }) 
     }
     setAiRationale(null);
   }, [date, history]);
+
+  // Timer Logic: Check every minute
+  useEffect(() => {
+    const checkTimers = () => {
+      const now = new Date();
+      const newNotifications: string[] = [];
+
+      trips.forEach(trip => {
+        if (trip.unsealed && trip.unsealTimeISO) {
+          const unsealTime = new Date(trip.unsealTimeISO);
+          const diffMs = now.getTime() - unsealTime.getTime();
+          const diffMinutes = diffMs / (1000 * 60);
+          
+          // 6 hours = 360 minutes
+          // Warning Window: Between 5h30m (330m) and 6h (360m)
+          if (diffMinutes >= 330 && diffMinutes < 360) {
+            const minutesLeft = 360 - Math.floor(diffMinutes);
+            newNotifications.push(`⚠️ Atenção: Viagem ${trip.id} vence o prazo de "Expedido mas não chegou" em ${minutesLeft} min.`);
+          }
+        }
+      });
+
+      // Update notifications if changed
+      if (JSON.stringify(newNotifications) !== JSON.stringify(notifications)) {
+        setNotifications(newNotifications);
+      }
+    };
+
+    const timer = setInterval(checkTimers, 60000); // Check every minute
+    checkTimers(); // Check immediately on mount/update
+
+    return () => clearInterval(timer);
+  }, [trips]);
 
   const handleAssign = (taskId: string, slotIndex: number, employeeId: string) => {
     setAssignments(prev => {
@@ -75,37 +109,61 @@ const DailyOperations: React.FC<Props> = ({ employees, history, onSaveRecord }) 
   };
 
   const toggleTripUnsealed = (index: number) => {
-    setTrips(prev => {
-      const newTrips = [...prev];
-      const currentTrip = newTrips[index];
-      const isNowUnsealed = !currentTrip.unsealed;
-      
-      // Se tornou deslacrada, adiciona timestamp. Se lacrou novamente, remove.
-      const timestamp = isNowUnsealed 
-        ? new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
-        : undefined;
-
-      newTrips[index] = { 
-        ...currentTrip, 
-        unsealed: isNowUnsealed,
-        unsealTimestamp: timestamp
-      };
-      return newTrips;
-    });
-  };
-
-  const handleSave = () => {
-    // Validação removida para permitir salvamento parcial (ex: salvar viagens sem ter volume definido ainda)
+    // 1. Calcular o novo estado das viagens
+    const newTrips = [...trips];
+    const currentTrip = newTrips[index];
+    const isNowUnsealed = !currentTrip.unsealed;
     
+    const now = new Date();
+    
+    // Se tornou deslacrada, adiciona timestamp. Se lacrou novamente, remove.
+    const timestampDisplay = isNowUnsealed 
+      ? now.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+      : undefined;
+
+    const timestampISO = isNowUnsealed
+      ? now.toISOString()
+      : undefined;
+
+    newTrips[index] = { 
+      ...currentTrip, 
+      unsealed: isNowUnsealed,
+      unsealTimestamp: timestampDisplay,
+      unsealTimeISO: timestampISO
+    };
+
+    // 2. Atualizar o estado visual local
+    setTrips(newTrips);
+
+    // 3. Salvar IMEDIATAMENTE no banco de dados para sincronizar com os relatórios
     const record: DailyRecord = {
       id: date,
       date,
-      volume: Number(volume) || 0, // Se estiver vazio, salva como 0
-      trucks: Number(trucks) || 0, // Se estiver vazio, salva como 0
+      volume: Number(volume) || 0,
+      trucks: Number(trucks) || 0,
       assignments,
-      trips
+      trips: newTrips
     };
     onSaveRecord(record);
+  };
+
+  const handleSave = () => {
+    // Filtra viagens com ID vazio para não sujar o banco de dados
+    const cleanTrips = trips.filter(t => t.id.trim() !== '');
+
+    const record: DailyRecord = {
+      id: date,
+      date,
+      volume: Number(volume) || 0,
+      trucks: Number(trucks) || 0,
+      assignments,
+      trips: cleanTrips
+    };
+    onSaveRecord(record);
+    
+    // Atualiza o estado local caso alguma viagem vazia tenha sido removida
+    setTrips(cleanTrips);
+    
     alert("Dados salvos com sucesso!");
   };
 
@@ -115,7 +173,6 @@ const DailyOperations: React.FC<Props> = ({ employees, history, onSaveRecord }) 
       const suggestion = await generateScheduleSuggestion(employees, history, date);
       setAiRationale(suggestion.rationale);
       
-      // Map suggestion names back to IDs
       const newAssignments: Assignment[] = [];
       
       suggestion.assignments.forEach((sug: any) => {
@@ -139,10 +196,40 @@ const DailyOperations: React.FC<Props> = ({ employees, history, onSaveRecord }) 
     }
   };
 
+  const getElapsedTime = (isoString?: string) => {
+    if (!isoString) return null;
+    const diff = new Date().getTime() - new Date(isoString).getTime();
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    return `${hours}h ${minutes}m`;
+  };
+
   const assignedCount = assignments.length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      
+      {/* Notifications Area */}
+      {notifications.length > 0 && (
+        <div className="fixed top-20 right-4 z-50 w-full max-w-sm space-y-2 animate-fade-in">
+          {notifications.map((note, idx) => (
+            <div key={idx} className="bg-amber-100 border-l-4 border-amber-500 text-amber-900 p-4 rounded shadow-lg flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-sm">Prazo de Expedição</p>
+                <p className="text-sm">{note}</p>
+              </div>
+              <button 
+                onClick={() => setNotifications(prev => prev.filter((_, i) => i !== idx))}
+                className="ml-auto text-amber-500 hover:text-amber-700"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Header Controls */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 justify-between items-end">
         <div className="flex gap-4 items-end w-full md:w-auto">
@@ -230,45 +317,62 @@ const DailyOperations: React.FC<Props> = ({ employees, history, onSaveRecord }) 
             
             <div className="p-4 space-y-3">
               {trips.length > 0 ? (
-                trips.map((trip, idx) => (
-                  <div key={idx} className="animate-fade-in flex items-start gap-2">
-                     <div className="flex-1 flex flex-col gap-1">
-                        <input
-                          type="text"
-                          maxLength={15}
-                          placeholder="ID Viagem (15 dígitos)"
-                          value={trip.id}
-                          onChange={(e) => handleTripChange(idx, e.target.value)}
-                          className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-sm font-mono uppercase focus:ring-2 focus:ring-blue-500 outline-none placeholder:normal-case"
-                        />
-                        {trip.unsealed && trip.unsealTimestamp && (
-                          <span className="text-[10px] text-green-600 font-medium px-1">
-                            Deslacrado em: {trip.unsealTimestamp}
-                          </span>
-                        )}
-                     </div>
-                    
-                    <button 
-                      onClick={() => toggleTripUnsealed(idx)}
-                      className={`flex items-center justify-center w-10 h-[38px] rounded border transition-all duration-200 ${
-                        trip.unsealed 
-                          ? 'bg-green-100 border-green-300 text-green-600 shadow-inner' 
-                          : 'bg-red-100 border-red-300 text-red-600 hover:bg-red-200'
-                      }`}
-                      title={trip.unsealed ? "Deslacrada" : "Lacrada"}
-                    >
-                      {trip.unsealed ? <Unlock className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
-                    </button>
+                trips.map((trip, idx) => {
+                  const elapsedTime = trip.unsealed ? getElapsedTime(trip.unsealTimeISO) : null;
+                  // Check if nearing 6 hours (5h30m = 330 min)
+                  const isWarning = trip.unsealTimeISO && (new Date().getTime() - new Date(trip.unsealTimeISO).getTime()) > (330 * 60 * 1000);
+                  
+                  return (
+                    <div key={idx} className={`animate-fade-in flex flex-col gap-2 p-3 rounded-lg border ${isWarning ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-100'}`}>
+                       <div className="flex items-start gap-2">
+                         <div className="flex-1 flex flex-col gap-1">
+                            <input
+                              type="text"
+                              maxLength={15}
+                              placeholder="ID Viagem (15 dígitos)"
+                              value={trip.id}
+                              onChange={(e) => handleTripChange(idx, e.target.value)}
+                              className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-sm font-mono uppercase focus:ring-2 focus:ring-blue-500 outline-none placeholder:normal-case"
+                            />
+                            {trip.unsealed && trip.unsealTimestamp && (
+                              <div className="flex justify-between items-center mt-1">
+                                <span className="text-[10px] text-slate-500 font-medium px-1 flex items-center gap-1">
+                                  <Clock className="w-3 h-3" /> {trip.unsealTimestamp}
+                                </span>
+                                {elapsedTime && (
+                                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${isWarning ? 'bg-amber-200 text-amber-800' : 'bg-slate-100 text-slate-600'}`}>
+                                    {elapsedTime}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                         </div>
+                        
+                        <div className="flex flex-col gap-1">
+                          <button 
+                            onClick={() => toggleTripUnsealed(idx)}
+                            className={`flex items-center justify-center w-10 h-[38px] rounded border transition-all duration-200 ${
+                              trip.unsealed 
+                                ? 'bg-green-100 border-green-300 text-green-600 shadow-inner' 
+                                : 'bg-red-100 border-red-300 text-red-600 hover:bg-red-200'
+                            }`}
+                            title={trip.unsealed ? "Deslacrada" : "Lacrada"}
+                          >
+                            {trip.unsealed ? <Unlock className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
+                          </button>
 
-                    <button
-                      onClick={() => handleRemoveTrip(idx)}
-                      className="flex items-center justify-center w-8 h-[38px] text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
-                      title="Remover Viagem"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))
+                          <button
+                            onClick={() => handleRemoveTrip(idx)}
+                            className="flex items-center justify-center w-10 h-[30px] text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                            title="Remover Viagem"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
               ) : (
                 <div className="text-center py-4 text-sm text-slate-400 border border-dashed border-slate-200 rounded-lg">
                   Nenhuma viagem registrada hoje

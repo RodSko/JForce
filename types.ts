@@ -28,7 +28,8 @@ export interface Assignment {
 export interface TripInfo {
   id: string; // 15 chars alphanumeric
   unsealed: boolean; // deslacrada
-  unsealTimestamp?: string; // Data e hora do deslacre
+  unsealTimestamp?: string; // Data e hora do deslacre (Formatado para exibição)
+  unsealTimeISO?: string; // Data ISO para cálculos de timer
 }
 
 export interface DailyRecord {

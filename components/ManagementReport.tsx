@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2, Loader2, Play, Package, Layers, RefreshCw, Users, Briefcase, UserX, Palmtree, MapPin, Calendar, Clock, Plus, Trash2, Truck, Send, ArrowRight, AlertTriangle, ArrowLeftRight, PackageX, Ban, Copy, Check } from 'lucide-react';
+import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2, Loader2, Play, Package, Layers, RefreshCw, Users, Briefcase, UserX, Palmtree, MapPin, Calendar, Clock, Plus, Trash2, Truck, Send, ArrowRight, AlertTriangle, ArrowLeftRight, PackageX, Ban, Copy, Check, BarChart } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { DailyRecord } from '../types';
 
@@ -63,6 +63,9 @@ const ManagementReport: React.FC<Props> = ({ history = [] }) => {
   
   // Data do Report
   const [reportDate, setReportDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  
+  // Volume Chegada (Integrado com DailyOperations)
+  const [arrivalVolume, setArrivalVolume] = useState<number>(0);
 
   // Configuração de inputs (Equipe)
   const [plannedEmployees, setPlannedEmployees] = useState<number>(17);
@@ -85,15 +88,24 @@ const ManagementReport: React.FC<Props> = ({ history = [] }) => {
   // Carregar dados iniciais do histórico quando a data muda
   useEffect(() => {
     const record = history.find(h => h.date === reportDate);
-    if (record && record.trips && record.trips.length > 0) {
-      const mappedTrips: ManagementTrip[] = record.trips.map(t => ({
-        id: t.id,
-        route: 'SP BRE X SE AJU', // Default
-        datetime: t.unsealTimestamp || '' // Usa o timestamp de deslacre se houver
-      }));
-      setTrips(mappedTrips);
+    if (record) {
+      // Carregar Viagens
+      if (record.trips && record.trips.length > 0) {
+        const mappedTrips: ManagementTrip[] = record.trips.map(t => ({
+          id: t.id,
+          route: 'SP BRE X SE AJU', // Default
+          datetime: t.unsealTimestamp || '' // Usa o timestamp de deslacre se houver
+        }));
+        setTrips(mappedTrips);
+      } else {
+        setTrips([]);
+      }
+      
+      // Carregar Volume
+      setArrivalVolume(record.volume || 0);
     } else {
-      setTrips([]); // Limpa se não houver registro
+      setTrips([]);
+      setArrivalVolume(0);
     }
   }, [reportDate, history]);
 
@@ -103,6 +115,7 @@ const ManagementReport: React.FC<Props> = ({ history = [] }) => {
     processed: number; 
     shipped: number;
     shippedByBase: Record<string, number>;
+    arrivalVolume: number;
     planned: number;
     outsourced: number;
     absent: number;
@@ -244,6 +257,7 @@ const ManagementReport: React.FC<Props> = ({ history = [] }) => {
         processed: countProcessed,
         shipped: countShipped,
         shippedByBase: shippedByBase,
+        arrivalVolume: arrivalVolume,
         planned: plannedEmployees,
         outsourced: outsourcedEmployees,
         absent: absentEmployees,
@@ -283,6 +297,7 @@ const ManagementReport: React.FC<Props> = ({ history = [] }) => {
 
     text += `Quantidade de Pacotes Processados: ${results.processed.toLocaleString('pt-BR')}\n`;
     text += `Quantidade de Pacotes Múltiplos: ${results.multiple.toLocaleString('pt-BR')}\n`;
+    text += `Volume Chegada: ${results.arrivalVolume.toLocaleString('pt-BR')}\n`;
     text += `Quantidade de colaboradores planejados: ${results.planned}\n`;
     text += `Quantidade de terceirizados: ${formatZero(results.outsourced)}\n`;
     text += `Quantidade de colaboradores em folga/falta: ${formatZero(results.absent)}\n`;
@@ -398,6 +413,16 @@ const ManagementReport: React.FC<Props> = ({ history = [] }) => {
                 <p className="text-sm font-semibold text-green-800 uppercase tracking-wide">Processados</p>
                 <p className="text-3xl font-bold text-slate-800">{results.processed.toLocaleString('pt-BR')}</p>
                 <p className="text-xs text-green-600">Pedidos únicos (Pai)</p>
+              </div>
+
+              {/* Card: Volume Chegada (NOVO) */}
+              <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-6 flex flex-col items-center text-center gap-2 shadow-sm relative overflow-hidden">
+                <div className="bg-indigo-100 p-3 rounded-full mb-2">
+                  <BarChart className="w-6 h-6 text-indigo-600" />
+                </div>
+                <p className="text-sm font-semibold text-indigo-800 uppercase tracking-wide">Volume Chegada</p>
+                <p className="text-3xl font-bold text-slate-800">{results.arrivalVolume.toLocaleString('pt-BR')}</p>
+                <p className="text-xs text-indigo-600">Volumetria do Dia</p>
               </div>
 
               {/* Card: Expedidos (Novo) */}
@@ -531,14 +556,30 @@ const ManagementReport: React.FC<Props> = ({ history = [] }) => {
           /* Se não tiver resultados, mostra Configuração e Upload */
           <div className="flex flex-col gap-8">
             
-            <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
-               <label className="text-sm font-medium text-slate-700 whitespace-nowrap">Data do Relatório:</label>
-               <input 
-                 type="date"
-                 value={reportDate}
-                 onChange={(e) => setReportDate(e.target.value)}
-                 className="px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-               />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                 <label className="text-sm font-medium text-slate-700 whitespace-nowrap flex items-center gap-2">
+                   <Calendar className="w-4 h-4 text-indigo-600" /> Data do Relatório:
+                 </label>
+                 <input 
+                   type="date"
+                   value={reportDate}
+                   onChange={(e) => setReportDate(e.target.value)}
+                   className="px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-full"
+                 />
+              </div>
+
+              <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                 <label className="text-sm font-medium text-slate-700 whitespace-nowrap flex items-center gap-2">
+                   <BarChart className="w-4 h-4 text-indigo-600" /> Volume Chegada:
+                 </label>
+                 <input 
+                   type="number"
+                   value={arrivalVolume}
+                   onChange={(e) => setArrivalVolume(Number(e.target.value))}
+                   className="px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-full"
+                 />
+              </div>
             </div>
 
             {/* Configuração de Viagens */}
