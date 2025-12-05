@@ -1,7 +1,7 @@
 import React from 'react';
-import { LayoutDashboard, Users, BarChart3, Boxes, FileText, Truck, ClipboardList } from 'lucide-react';
+import { LayoutDashboard, Users, BarChart3, Boxes, FileText, Truck, ClipboardList, Map, Box } from 'lucide-react';
 
-type View = 'daily' | 'team' | 'reports' | 'generate' | 'shipped' | 'management';
+type View = 'daily' | 'team' | 'reports' | 'generate' | 'shipped' | 'management' | 'secondary' | 'supplies';
 
 interface Props {
   currentView: View;
@@ -16,6 +16,8 @@ const Layout: React.FC<Props> = ({ currentView, onChangeView, children }) => {
     { id: 'generate', label: 'Gerar Report Carregamento', icon: FileText },
     { id: 'management', label: 'Gerar Report Gestão', icon: ClipboardList },
     { id: 'shipped', label: 'Expedido Mas Não Chegou', icon: Truck },
+    { id: 'secondary', label: 'Viagens Secundárias', icon: Map },
+    { id: 'supplies', label: 'Controle de Insumos', icon: Box },
     { id: 'team', label: 'Equipe', icon: Users },
   ] as const;
 
