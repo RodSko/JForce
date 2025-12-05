@@ -9,6 +9,7 @@ import ManagementReport from './components/ManagementReport';
 import ShippedNotArrived from './components/ShippedNotArrived';
 import SecondaryTrips from './components/SecondaryTrips';
 import SuppliesControl from './components/SuppliesControl';
+import QrCodeGenerator from './components/QrCodeGenerator';
 import { dataService } from './services/dataService';
 import { Loader2, AlertTriangle, Database, Copy, Check } from 'lucide-react';
 
@@ -42,7 +43,7 @@ DROP POLICY IF EXISTS "Public Access Records" ON public.daily_records;
 CREATE POLICY "Public Access Records" ON public.daily_records FOR ALL USING (true);`;
 
 function App() {
-  const [view, setView] = useState<'daily' | 'team' | 'reports' | 'generate' | 'shipped' | 'management' | 'secondary' | 'supplies'>('daily');
+  const [view, setView] = useState<'daily' | 'team' | 'reports' | 'generate' | 'shipped' | 'management' | 'secondary' | 'supplies' | 'qrcode'>('daily');
   
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [history, setHistory] = useState<DailyRecord[]>([]);
@@ -230,6 +231,9 @@ function App() {
       )}
       {view === 'supplies' && (
         <SuppliesControl />
+      )}
+      {view === 'qrcode' && (
+        <QrCodeGenerator />
       )}
     </Layout>
   );
