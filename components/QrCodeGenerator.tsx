@@ -14,7 +14,7 @@ const QrCodeGenerator: React.FC = () => {
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
 
-  // Intervalo do Play Automático (1 segundo)
+  // Intervalo do Play Automático (1.5 segundos)
   useEffect(() => {
     let interval: any;
     
@@ -28,7 +28,7 @@ const QrCodeGenerator: React.FC = () => {
           }
           return prevIndex + 1;
         });
-      }, 1000); // 1000ms = 1 segundo
+      }, 1500); // 1500ms = 1.5 segundo
     }
 
     return () => clearInterval(interval);
@@ -269,7 +269,7 @@ const QrCodeGenerator: React.FC = () => {
              <div className="mt-4 h-6">
                {isPlaying && (
                  <p className="text-sm text-indigo-600 font-medium animate-pulse flex items-center gap-2">
-                   <RotateCcw className="w-3 h-3 animate-spin" /> Avançando automaticamente (1s)...
+                   <RotateCcw className="w-3 h-3 animate-spin" /> Avançando automaticamente (1.5s)...
                  </p>
                )}
              </div>
