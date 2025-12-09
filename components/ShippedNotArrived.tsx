@@ -1,467 +1,643 @@
-import React, { useRef, useState } from 'react';
-import { FileSpreadsheet, Truck, Package, Download, Loader2, Search, FileSearch } from 'lucide-react';
+import React, { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
+import { Upload, FileSpreadsheet, Filter, Download, Settings2, CheckCircle2, AlertCircle, ArrowRight, RefreshCw, Search, ListFilter, GitCompare, ArrowRightLeft } from 'lucide-react';
 
-// --- Helper Functions ---
-
-const readFile = (file: File): Promise<any[]> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = e.target?.result;
-        const workbook = XLSX.read(data, { type: 'binary' });
-        const firstSheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[firstSheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
-        resolve(jsonData as any[]);
-      } catch (error) {
-        reject(error);
-      }
-    };
-    reader.onerror = (error) => reject(error);
-    reader.readAsBinaryString(file);
-  });
-};
-
-const autoFitColumns = (data: any[]) => {
-  if (data.length === 0) return [];
-  return Object.keys(data[0]).map(key => {
-    let maxLen = key.length;
-    const limit = Math.min(data.length, 500);
-    for (let i = 0; i < limit; i++) {
-      const value = data[i][key];
-      const len = value ? String(value).length : 0;
-      if (len > maxLen) maxLen = len;
-    }
-    return { wch: Math.min(maxLen + 5, 60) };
-  });
-};
-
-const findColumnName = (row: any, possibleNames: string[]): string | undefined => {
-  const keys = Object.keys(row);
-  for (const name of possibleNames) {
-    const found = keys.find(k => k.trim().toLowerCase() === name.toLowerCase());
-    if (found) return found;
-  }
-  return undefined;
-};
-
-// Lógica de comparação segura para Z-A (Decrescente)
-const compareRecords = (a: any, b: any, colTime: string | undefined): number => {
-  if (!colTime) return 0;
-
-  const valA = a[colTime];
-  const valB = b[colTime];
-  
-  const dateA = valA ? new Date(valA).getTime() : 0;
-  const dateB = valB ? new Date(valB).getTime() : 0;
-
-  const isValidDateA = !isNaN(dateA) && dateA !== 0;
-  const isValidDateB = !isNaN(dateB) && dateB !== 0;
-
-  if (isValidDateA && isValidDateB) {
-    return dateB - dateA; // Decrescente (Mais recente primeiro)
-  }
-
-  const strA = String(valA || '');
-  const strB = String(valB || '');
-  return strB.localeCompare(strA);
-};
+interface ProcessLog {
+  step: string;
+  count: number;
+  removed: number;
+}
 
 const ShippedNotArrived: React.FC = () => {
-  // Refs Seção 1
-  const loadingInputRef = useRef<HTMLInputElement>(null);
-  const batchInputRef = useRef<HTMLInputElement>(null);
-  
-  // Ref Seção 2
-  const analysisInputRef = useRef<HTMLInputElement>(null);
-  
-  // Estados Seção 1
-  const [loadingFileName, setLoadingFileName] = useState<string | null>(null);
-  const [batchFileName, setBatchFileName] = useState<string | null>(null);
-  
-  // Estados Seção 2
-  const [analysisFileName, setAnalysisFileName] = useState<string | null>(null);
-  const [tripIdFilter, setTripIdFilter] = useState<string>('');
-  
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  // --- STATE GERAL ---
+  const [mode, setMode] = useState<'single' | 'cross'>('single');
 
-  // --- Handlers Seção 1 ---
-  const triggerLoadingInput = () => loadingInputRef.current?.click();
-  const triggerBatchInput = () => batchInputRef.current?.click();
+  // --- STATE MODO SINGLE (Existente) ---
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [dataset, setDataset] = useState<any[]>([]);
+  const [headers, setHeaders] = useState<string[]>([]);
+  const [fileName, setFileName] = useState<string>('');
+  const [targetTripId, setTargetTripId] = useState<string>('');
+  
+  const [colMapping, setColMapping] = useState({
+    time: '',
+    order: '',
+    base: '',
+    stop: '',
+    id: ''
+  });
+  
+  const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [logs, setLogs] = useState<ProcessLog[]>([]);
+  const [filteredData, setFilteredData] = useState<any[]>([]);
+  const [errorMessage, setErrorMessage] = useState('');
 
-  const handleLoadingUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) setLoadingFileName(file.name);
+  // --- STATE MODO CROSS (Novo) ---
+  const file1Ref = useRef<HTMLInputElement>(null);
+  const file2Ref = useRef<HTMLInputElement>(null);
+  const [file1Name, setFile1Name] = useState('');
+  const [file2Name, setFile2Name] = useState('');
+  const [data1, setData1] = useState<any[]>([]);
+  const [data2, setData2] = useState<any[]>([]);
+  const [crossStatus, setCrossStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [crossResult, setCrossResult] = useState<any[]>([]);
+  const [crossMessage, setCrossMessage] = useState('');
+
+  // --- FUNÇÕES UTILITÁRIAS ---
+
+  const cleanValue = (val: any): string => {
+    if (val === null || val === undefined) return '';
+    return String(val).trim().replace(/\s+/g, ' ').toUpperCase();
   };
 
-  const handleBatchUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) setBatchFileName(file.name);
-  };
-
-  // --- Handlers Seção 2 ---
-  const triggerAnalysisInput = () => analysisInputRef.current?.click();
-
-  const handleAnalysisUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) setAnalysisFileName(file.name);
-  };
-
-  // --- Lógica Seção 1: Comparação ---
-  const handleProcessAndDownload = async () => {
-    const loadingFile = loadingInputRef.current?.files?.[0];
-    const batchFile = batchInputRef.current?.files?.[0];
-
-    if (!loadingFile || !batchFile) {
-      alert("Por favor, selecione as duas planilhas antes de continuar.");
-      return;
-    }
-
-    setIsProcessing(true);
-
-    try {
-      const [loadingData, batchData] = await Promise.all([
-        readFile(loadingFile),
-        readFile(batchFile)
-      ]);
-
-      const validLoadingOrders: any[] = [];
-      
-      const firstLoadingRow = loadingData[0] || {};
-      const loadingOrderCol = findColumnName(firstLoadingRow, ['Número de pedido JMS', 'Numero de pedido JMS', 'Pedido', 'Order ID']);
-
-      if (!loadingOrderCol) {
-        throw new Error("Coluna 'Número de pedido JMS' não encontrada na planilha de carregamento.");
+  const findColumn = (row: any, candidates: string[]): string => {
+    if (!row) return '';
+    const keys = Object.keys(row);
+    for (const key of keys) {
+      if (candidates.some(c => key.toLowerCase().includes(c))) {
+        return key;
       }
+    }
+    return '';
+  };
 
-      loadingData.forEach((row: any) => {
-        const rawId = row[loadingOrderCol];
-        if (rawId) {
-          const idStr = String(rawId).trim();
-          if (/^\d+$/.test(idStr)) {
-            validLoadingOrders.push({ ...row, _cleanId: idStr });
+  // --- LÓGICA MODO SINGLE (Existente) ---
+
+  const identifyColumns = (headers: string[]) => {
+    const mapping = { time: '', order: '', base: '', stop: '', id: '' };
+    const patterns = {
+      time: ['tempo de digitalização', 'tempo', 'digitalizacao', 'data', 'hora'],
+      order: ['número de pedido jms', 'numero de pedido jms', 'pedido', 'jms', 'ordem'],
+      base: ['base de escaneamento', 'base', 'escaneamento', 'local'],
+      stop: ['parada anterior ou próxima', 'parada anterior ou proxima', 'parada', 'destino', 'estacao'],
+      id: ['número do id', 'numero do id', 'id', 'identificação', 'codigo']
+    };
+
+    headers.forEach(header => {
+      const hLower = header.toLowerCase();
+      (Object.keys(patterns) as Array<keyof typeof patterns>).forEach(key => {
+        if (!mapping[key]) {
+          if (patterns[key].some(pattern => hLower.includes(pattern))) {
+            mapping[key] = header;
           }
         }
       });
+    });
+    setColMapping(mapping);
+  };
 
-      const batchIds = new Set<string>();
-      const firstBatchRow = batchData[0] || {};
-      const batchOrderCol = findColumnName(firstBatchRow, ['Número de pedido JMS', 'Numero de pedido JMS', 'Pedido', 'Order ID']);
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-      if (!batchOrderCol) {
-        throw new Error("Coluna 'Número de pedido JMS' não encontrada na planilha de lote.");
-      }
-
-      batchData.forEach((row: any) => {
-        const rawId = row[batchOrderCol];
-        if (rawId) {
-          const idStr = String(rawId).trim();
-          batchIds.add(idStr);
+    setFileName(file.name);
+    const reader = new FileReader();
+    
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const data = XLSX.utils.sheet_to_json<any>(ws, { defval: "" });
+        
+        if (data.length > 0) {
+          setDataset(data);
+          const cols = Object.keys(data[0]);
+          setHeaders(cols);
+          identifyColumns(cols);
+          setStatus('idle');
+          setFilteredData([]);
+          setLogs([]);
         }
-      });
-
-      const missingOrders = validLoadingOrders.filter(item => !batchIds.has(item._cleanId));
-
-      if (missingOrders.length === 0) {
-        alert("Nenhum pedido faltante encontrado!");
-        setIsProcessing(false);
-        return;
+      } catch (err) {
+        console.error(err);
+        alert("Erro ao ler arquivo Excel.");
       }
+    };
+    reader.readAsBinaryString(file);
+  };
 
-      const exportData = missingOrders.map(({ _cleanId, ...rest }) => rest);
-      const ws = XLSX.utils.json_to_sheet(exportData);
-      ws['!cols'] = autoFitColumns(exportData);
+  const handleProcess = () => {
+    if (!dataset.length) return;
+    
+    const missingCols = [];
+    if (!colMapping.time) missingCols.push("Tempo de digitalização");
+    if (!colMapping.order) missingCols.push("Número de pedido JMS");
+    if (!colMapping.base) missingCols.push("Base de escaneamento");
+    if (!colMapping.stop) missingCols.push("Parada anterior ou próxima");
+    if (!colMapping.id) missingCols.push("Número do ID");
 
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Faltantes");
+    if (missingCols.length > 0) {
+      alert(`Colunas não identificadas: ${missingCols.join(', ')}.`);
+      return;
+    }
 
-      const fileName = `pedidos_faltantes_${new Date().toISOString().split('T')[0]}.xlsx`;
-      XLSX.writeFile(wb, fileName);
+    if (!targetTripId.trim()) {
+      alert("Por favor, insira o ID da Viagem.");
+      return;
+    }
 
-      alert(`Processamento concluído! ${missingOrders.length} pedidos encontrados e baixados.`);
+    const idAlvoClean = cleanValue(targetTripId);
+    const processLogs: ProcessLog[] = [];
+    
+    let currentData = [...dataset];
+    processLogs.push({ step: 'Dados Originais', count: currentData.length, removed: 0 });
 
-    } catch (error: any) {
-      console.error("Erro:", error);
-      alert(`Erro: ${error.message || "Ocorreu um erro ao processar os arquivos."}`);
-    } finally {
-      setIsProcessing(false);
+    // 1. Sort Z->A
+    currentData.sort((a, b) => {
+      const timeA = cleanValue(a[colMapping.time]);
+      const timeB = cleanValue(b[colMapping.time]);
+      return timeB.localeCompare(timeA, undefined, { numeric: true, sensitivity: 'base' });
+    });
+    processLogs.push({ step: '1. Ordenação: Tempo (Z → A)', count: currentData.length, removed: 0 });
+
+    // 2. Deduplicate
+    const seenOrders = new Set();
+    const uniqueData: any[] = [];
+    currentData.forEach(row => {
+      const orderId = cleanValue(row[colMapping.order]);
+      if (orderId && !seenOrders.has(orderId)) {
+        seenOrders.add(orderId);
+        uniqueData.push(row);
+      }
+    });
+    const removedDupes = currentData.length - uniqueData.length;
+    currentData = uniqueData;
+    processLogs.push({ step: '2. Deduplicação: Pedidos JMS', count: currentData.length, removed: removedDupes });
+
+    // 3. Filter Base SP BRE
+    const beforeBase = currentData.length;
+    currentData = currentData.filter(row => cleanValue(row[colMapping.base]).includes('SP BRE'));
+    processLogs.push({ step: "3. Filtro Base: 'SP BRE'", count: currentData.length, removed: beforeBase - currentData.length });
+
+    // 4. Filter Stop SE AJU
+    const beforeStop = currentData.length;
+    currentData = currentData.filter(row => cleanValue(row[colMapping.stop]).includes('SE AJU'));
+    processLogs.push({ step: "4. Filtro Parada: 'SE AJU'", count: currentData.length, removed: beforeStop - currentData.length });
+
+    // 5. Filter ID
+    const beforeId = currentData.length;
+    currentData = currentData.filter(row => {
+      const val = cleanValue(row[colMapping.id]);
+      const valNoSpace = val.replace(/\s+/g, '');
+      const targetNoSpace = idAlvoClean.replace(/\s+/g, '');
+      return val === idAlvoClean || valNoSpace === targetNoSpace;
+    });
+    processLogs.push({ step: `5. Filtro ID: '${idAlvoClean}'`, count: currentData.length, removed: beforeId - currentData.length });
+
+    setFilteredData(currentData);
+    setLogs(processLogs);
+    setStatus(currentData.length > 0 ? 'success' : 'error');
+    if (currentData.length === 0) {
+      setErrorMessage("Nenhum registro restou após a aplicação sequencial dos filtros.");
     }
   };
 
-  // --- Lógica Seção 2: Análise Avançada ---
-  const handleProcessAnalysis = async () => {
-    const analysisFile = analysisInputRef.current?.files?.[0];
-    
-    if (!analysisFile) {
-      alert("Por favor, selecione a planilha de rastreio.");
+  const handleDownload = () => {
+    const ws = XLSX.utils.json_to_sheet(filteredData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Dados Filtrados");
+    XLSX.writeFile(wb, `Resultado_Filtro_${targetTripId}.xlsx`);
+  };
+
+  const handleReset = () => {
+    setDataset([]);
+    setFilteredData([]);
+    setStatus('idle');
+    setTargetTripId('');
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  // --- LÓGICA MODO CROSS (Novo) ---
+
+  const readExcel = (file: File): Promise<any[]> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = e.target?.result;
+          const workbook = XLSX.read(data, { type: 'binary' });
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          resolve(XLSX.utils.sheet_to_json(sheet, { defval: "" }));
+        } catch (err) { reject(err); }
+      };
+      reader.readAsBinaryString(file);
+    });
+  };
+
+  const handleFile1Upload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setFile1Name(file.name);
+      const data = await readExcel(file);
+      setData1(data);
+    }
+  };
+
+  const handleFile2Upload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setFile2Name(file.name);
+      const data = await readExcel(file);
+      setData2(data);
+    }
+  };
+
+  const handleCrossProcess = () => {
+    if (data1.length === 0 || data2.length === 0) {
+      alert("Por favor, carregue ambas as planilhas.");
       return;
     }
-    
-    if (!tripIdFilter.trim()) {
-      alert("Por favor, insira o ID da Viagem para filtrar.");
+
+    // Identificar colunas
+    const colId1 = findColumn(data1[0], ['número de pedido jms', 'numero de pedido jms', 'pedido', 'jms']);
+    const colId2 = findColumn(data2[0], ['número de pedido jms', 'numero de pedido jms', 'pedido', 'jms']);
+
+    if (!colId1 || !colId2) {
+      alert("Não foi possível encontrar a coluna 'Número de pedido JMS' em uma das planilhas.");
       return;
     }
 
-    setIsAnalyzing(true);
+    // Processar Planilha 1: Remover Pedidos Filhos (contém '-')
+    const cleanData1 = data1.filter(row => {
+      const id = cleanValue(row[colId1]);
+      return !id.includes('-');
+    });
 
-    try {
-      const rawData = await readFile(analysisFile);
-      
-      if (rawData.length === 0) {
-        alert("A planilha está vazia.");
-        setIsAnalyzing(false);
-        return;
+    // Processar Planilha 2: Remover Filhos (-) E Lotes (BR)
+    const validIdsTable2 = new Set<string>();
+    data2.forEach(row => {
+      const id = cleanValue(row[colId2]);
+      if (id && !id.includes('-') && !id.startsWith('BR')) {
+        validIdsTable2.add(id);
       }
+    });
 
-      const targetBase = 'SP BRE';
-      const targetStop = 'SE AJU';
-      const targetTripId = tripIdFilter.trim().toUpperCase();
+    // Cruzamento: O que tem na 1 e NÃO tem na 2
+    const diff = cleanData1.filter(row => {
+      const id = cleanValue(row[colId1]);
+      return !validIdsTable2.has(id);
+    });
 
-      const firstRow = rawData[0];
-      const colBase = findColumnName(firstRow, ['Base de escaneamento', 'Scan Base', 'Base']);
-      const colStop = findColumnName(firstRow, ['Parada anterior ou próxima', 'Parada anterior ou proxima', 'Next Stop']);
-      const colTripId = findColumnName(firstRow, ['Número do ID', 'Numero do ID', 'ID Viagem', 'Trip ID', 'ID']);
-      const colTime = findColumnName(firstRow, ['Tempo de digitalização', 'Tempo de digitalizacao', 'Scan Time', 'Data']);
-      const colOrderId = findColumnName(firstRow, ['Número de pedido JMS', 'Numero de pedido JMS', 'Pedido']);
-
-      if (!colBase || !colStop || !colTripId) {
-        alert("Não foi possível encontrar as colunas necessárias na planilha (Base de escaneamento, Parada, Número do ID). Verifique o arquivo.");
-        setIsAnalyzing(false);
-        return;
-      }
-
-      // 1. Filtragem Inicial
-      let filteredData = rawData.filter((row: any) => {
-        const base = String(row[colBase] || '').trim().toUpperCase();
-        const stop = String(row[colStop] || '').trim().toUpperCase();
-        const tripId = String(row[colTripId] || '').trim().toUpperCase();
-
-        return base === targetBase && stop === targetStop && tripId.includes(targetTripId);
-      });
-
-      if (filteredData.length === 0) {
-        alert(`Nenhum dado encontrado.\nVerifique se o ID "${targetTripId}" está correto e se existem registros com Base SP BRE e Parada SE AJU.`);
-        setIsAnalyzing(false);
-        return;
-      }
-
-      // 2. Ordenação (Z a A)
-      if (colTime) {
-        filteredData.sort((a, b) => compareRecords(a, b, colTime));
-      }
-
-      // 3. Deduplicação (Mantém o primeiro/mais recente)
-      const uniqueOrders = new Map();
-      const finalData: any[] = [];
-
-      filteredData.forEach((row: any) => {
-        const uniqueKey = colOrderId ? (row[colOrderId] || Math.random()) : Math.random();
-        
-        if (colOrderId && uniqueKey) {
-            if (!uniqueOrders.has(uniqueKey)) {
-                uniqueOrders.set(uniqueKey, true);
-                finalData.push(row);
-            }
-        } else {
-            finalData.push(row);
-        }
-      });
-
-      // 4. Exportação
-      const ws = XLSX.utils.json_to_sheet(finalData);
-      ws['!cols'] = autoFitColumns(finalData);
-
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Analise_Filtrada");
-
-      const fileName = `analise_rastreio_${targetTripId}_${new Date().toISOString().split('T')[0]}.xlsx`;
-      XLSX.writeFile(wb, fileName);
-
-      alert(`Análise concluída!\n\nRegistros filtrados: ${filteredData.length}\nRegistros únicos (exportados): ${finalData.length}`);
-
-    } catch (error) {
-      console.error("Erro na análise:", error);
-      alert("Erro ao processar arquivo de análise. Verifique o formato.");
-    } finally {
-      setIsAnalyzing(false);
+    setCrossResult(diff);
+    setCrossStatus(diff.length > 0 ? 'success' : 'error');
+    if (diff.length === 0) {
+      setCrossMessage("Todos os pedidos válidos da Planilha 1 foram encontrados na Planilha 2.");
     }
+  };
+
+  const handleCrossDownload = () => {
+    const ws = XLSX.utils.json_to_sheet(crossResult);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Diferenca");
+    XLSX.writeFile(wb, `Relatorio_Diferenca_Cruzamento.xlsx`);
+  };
+
+  const handleCrossReset = () => {
+    setData1([]);
+    setData2([]);
+    setFile1Name('');
+    setFile2Name('');
+    setCrossResult([]);
+    setCrossStatus('idle');
+    if (file1Ref.current) file1Ref.current.value = '';
+    if (file2Ref.current) file2Ref.current.value = '';
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-12 pb-20">
-      {/* Seção 1: Comparação de Faltantes */}
-      <div className="bg-white p-8 rounded-xl border border-slate-200 shadow-sm">
-        <div className="text-center mb-10">
-          <h2 className="text-2xl font-bold text-slate-800">1. Expedido Mas Não Chegou</h2>
-          <p className="text-slate-500 mt-2 max-w-2xl mx-auto">
-            Faça o cruzamento de dados entre o relatório de carregamento e o controle de lotes para identificar discrepâncias.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-          {/* Card 1: Importar Carregamento */}
-          <div className="flex flex-col h-full">
-            <div className="bg-blue-50 border border-blue-100 rounded-t-xl p-4 flex items-center gap-3">
-              <div className="bg-blue-100 p-2 rounded-lg">
-                <Truck className="w-6 h-6 text-blue-600" />
-              </div>
-              <h3 className="font-semibold text-blue-900">Relatório de Carregamento</h3>
-            </div>
-            
-            <div className="border-x border-b border-slate-200 rounded-b-xl p-6 flex-1 flex flex-col items-center justify-center bg-white">
-              <input 
-                type="file" 
-                ref={loadingInputRef} 
-                onChange={handleLoadingUpload} 
-                accept=".xlsx,.xls,.csv" 
-                className="hidden" 
-              />
-              
-              <div 
-                className="w-full p-8 border-2 border-dashed border-blue-200 rounded-xl bg-slate-50 hover:bg-blue-50/50 transition-colors flex flex-col items-center gap-4 group cursor-pointer" 
-                onClick={triggerLoadingInput}
-              >
-                <FileSpreadsheet className="w-12 h-12 text-blue-300 group-hover:text-blue-500 transition-colors" />
-                {loadingFileName ? (
-                  <div className="text-center">
-                    <p className="font-medium text-slate-800 break-all">{loadingFileName}</p>
-                    <p className="text-xs text-green-600 font-medium mt-1">Arquivo selecionado</p>
-                  </div>
-                ) : (
-                  <div className="text-center">
-                    <p className="text-sm font-medium text-slate-600">Clique para selecionar</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Card 2: Importar Lote */}
-          <div className="flex flex-col h-full">
-            <div className="bg-orange-50 border border-orange-100 rounded-t-xl p-4 flex items-center gap-3">
-              <div className="bg-orange-100 p-2 rounded-lg">
-                <Package className="w-6 h-6 text-orange-600" />
-              </div>
-              <h3 className="font-semibold text-orange-900">Controle de Lote</h3>
-            </div>
-            
-            <div className="border-x border-b border-slate-200 rounded-b-xl p-6 flex-1 flex flex-col items-center justify-center bg-white">
-              <input 
-                type="file" 
-                ref={batchInputRef} 
-                onChange={handleBatchUpload} 
-                accept=".xlsx,.xls,.csv" 
-                className="hidden" 
-              />
-              
-              <div 
-                className="w-full p-8 border-2 border-dashed border-orange-200 rounded-xl bg-slate-50 hover:bg-orange-50/50 transition-colors flex flex-col items-center gap-4 group cursor-pointer" 
-                onClick={triggerBatchInput}
-              >
-                <FileSpreadsheet className="w-12 h-12 text-orange-300 group-hover:text-orange-500 transition-colors" />
-                {batchFileName ? (
-                  <div className="text-center">
-                    <p className="font-medium text-slate-800 break-all">{batchFileName}</p>
-                    <p className="text-xs text-green-600 font-medium mt-1">Arquivo selecionado</p>
-                  </div>
-                ) : (
-                  <div className="text-center">
-                    <p className="text-sm font-medium text-slate-600">Clique para selecionar</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex justify-center border-t border-slate-100 pt-8">
-          <button
-            onClick={handleProcessAndDownload}
-            disabled={isProcessing || !loadingFileName || !batchFileName}
-            className={`
-              flex items-center gap-3 px-8 py-4 rounded-xl text-lg font-bold shadow-lg transition-all
-              ${isProcessing || !loadingFileName || !batchFileName
-                ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                : 'bg-green-600 hover:bg-green-700 text-white hover:shadow-xl hover:-translate-y-1'
-              }
-            `}
-          >
-            {isProcessing ? <Loader2 className="w-6 h-6 animate-spin" /> : <Download className="w-6 h-6" />}
-            Processar e Baixar Resultado
-          </button>
-        </div>
-      </div>
-
-      {/* Seção 2: Análise Avançada de Rastreio */}
-      <div id="advanced-analysis-section" className="bg-white p-8 rounded-xl border border-slate-200 shadow-sm border-t-4 border-t-purple-500">
-        <div className="text-center mb-8">
-          <h2 className="text-2xl font-bold text-slate-800">2. Análise Avançada de Rastreio</h2>
-          <p className="text-slate-500 mt-2 max-w-2xl mx-auto">
-            Filtra registros SP BRE - SE AJU, ordena por tempo (Z-A) e remove duplicatas com base no ID da viagem.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-end">
-          {/* Input ID Viagem */}
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-slate-700 mb-2">ID da Viagem (Filtro)</label>
-            <div className="relative">
-              <input
-                type="text"
-                value={tripIdFilter}
-                onChange={(e) => setTripIdFilter(e.target.value)}
-                placeholder="Ex: SRTR2250..."
-                className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none uppercase font-mono"
-              />
-              <Search className="w-5 h-5 text-slate-400 absolute left-3 top-3.5" />
-            </div>
-          </div>
-
-          {/* Upload Planilha */}
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-slate-700 mb-2">Relatório de Bipagem</label>
-            <input 
-              type="file" 
-              ref={analysisInputRef} 
-              onChange={handleAnalysisUpload} 
-              accept=".xlsx,.xls,.csv" 
-              className="hidden" 
-            />
-            <div 
-              onClick={triggerAnalysisInput}
-              className="w-full py-3 px-4 border border-dashed border-purple-300 bg-purple-50 rounded-xl text-purple-700 font-medium cursor-pointer hover:bg-purple-100 transition-colors flex items-center justify-center gap-2"
+    <div className="max-w-6xl mx-auto pb-20 space-y-8">
+      {/* Header com Toggle */}
+      <div className="bg-slate-900 rounded-2xl p-8 text-white shadow-xl relative overflow-hidden">
+         <div className="relative z-10">
+          <h2 className="text-3xl font-bold mb-4 flex items-center gap-3">
+            <ListFilter className="w-8 h-8 text-indigo-400" />
+            Expediu Mas Não Chegou
+          </h2>
+          
+          <div className="flex flex-wrap gap-2">
+            <button 
+              onClick={() => setMode('single')}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${mode === 'single' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
             >
-              <FileSearch className="w-5 h-5" />
-              {analysisFileName ? (
-                <span className="truncate max-w-[200px]">{analysisFileName}</span>
-              ) : (
-                "Selecionar Planilha"
-              )}
-            </div>
-          </div>
-
-          {/* Botão Ação */}
-          <div className="flex-1">
-             <button
-              onClick={handleProcessAnalysis}
-              disabled={isAnalyzing || !analysisFileName || !tripIdFilter}
-              className={`
-                w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl font-bold transition-all shadow-md
-                ${isAnalyzing || !analysisFileName || !tripIdFilter
-                  ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                  : 'bg-purple-600 hover:bg-purple-700 text-white hover:shadow-lg'
-                }
-              `}
+              <Filter className="w-4 h-4" /> Filtro Sequencial (Único)
+            </button>
+            <button 
+              onClick={() => setMode('cross')}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${mode === 'cross' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
             >
-              {isAnalyzing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
-              Processar Análise
+              <GitCompare className="w-4 h-4" /> Cruzamento de Bases (Duplo)
             </button>
           </div>
         </div>
       </div>
+
+      {/* ==================== MODO SINGLE ==================== */}
+      {mode === 'single' && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-fade-in">
+          {/* COLUNA ESQUERDA: CONFIGURAÇÃO */}
+          <div className="lg:col-span-4 space-y-6">
+            
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                  <Upload className="w-5 h-5 text-indigo-600" /> Upload da Planilha
+                </h3>
+                {dataset.length > 0 && (
+                  <button onClick={handleReset} className="text-xs text-red-500 hover:underline flex items-center gap-1">
+                    <RefreshCw className="w-3 h-3" /> Limpar
+                  </button>
+                )}
+              </div>
+              
+              <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept=".xlsx,.xls" />
+              
+              {!dataset.length ? (
+                <button 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full py-8 border-2 border-dashed border-slate-300 rounded-lg text-slate-500 hover:border-indigo-500 hover:text-indigo-600 hover:bg-indigo-50 transition-all flex flex-col items-center justify-center gap-2"
+                >
+                  <FileSpreadsheet className="w-8 h-8" />
+                  <span>Selecionar Arquivo .xlsx</span>
+                </button>
+              ) : (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-3">
+                  <FileSpreadsheet className="w-8 h-8 text-green-600" />
+                  <div className="overflow-hidden">
+                    <p className="text-sm font-bold text-green-800 truncate" title={fileName}>{fileName}</p>
+                    <p className="text-xs text-green-600">{dataset.length} linhas carregadas</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+              <h3 className="font-bold text-slate-800 mb-2 flex items-center gap-2">
+                <Search className="w-5 h-5 text-indigo-600" /> ID para Filtro Final
+              </h3>
+              <p className="text-xs text-slate-500 mb-3">Insira o ID exato para o 5º passo do filtro.</p>
+              <input 
+                type="text" 
+                value={targetTripId}
+                onChange={(e) => setTargetTripId(e.target.value)}
+                placeholder="Ex: DBGX..."
+                className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-mono text-sm uppercase"
+              />
+            </div>
+
+            {dataset.length > 0 && (
+              <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-3">
+                <h3 className="font-bold text-slate-800 mb-2 flex items-center gap-2">
+                  <Settings2 className="w-5 h-5 text-indigo-600" /> Mapeamento de Colunas
+                </h3>
+                
+                {[
+                  { key: 'time', label: 'Tempo de digitalização' },
+                  { key: 'order', label: 'Número de pedido JMS' },
+                  { key: 'base', label: 'Base de escaneamento' },
+                  { key: 'stop', label: 'Parada anterior ou próxima' },
+                  { key: 'id', label: 'Número do ID' },
+                ].map((field) => (
+                  <div key={field.key}>
+                    <label className="text-xs font-bold text-slate-500">{field.label}</label>
+                    <select 
+                      value={colMapping[field.key as keyof typeof colMapping]} 
+                      onChange={(e) => setColMapping(prev => ({ ...prev, [field.key]: e.target.value }))}
+                      className={`w-full p-2 border rounded text-xs mt-1 outline-none ${!colMapping[field.key as keyof typeof colMapping] ? 'border-red-300 bg-red-50' : 'border-slate-300'}`}
+                    >
+                      <option value="">Selecione a coluna...</option>
+                      {headers.map(h => <option key={h} value={h}>{h}</option>)}
+                    </select>
+                  </div>
+                ))}
+
+                <button 
+                  onClick={handleProcess}
+                  className="w-full mt-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold shadow-md transition-all flex items-center justify-center gap-2"
+                >
+                  <Filter className="w-4 h-4" /> Aplicar Filtros Sequenciais
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* COLUNA DIREITA: RESULTADOS SINGLE */}
+          <div className="lg:col-span-8 space-y-6">
+            {logs.length > 0 && (
+              <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <h3 className="text-lg font-bold text-slate-800 mb-4">📈 Sequência de Processamento</h3>
+                
+                <div className="space-y-4">
+                  <div className="grid grid-cols-4 gap-4 mb-2 text-xs font-bold text-slate-400 uppercase tracking-wider border-b pb-2">
+                    <div className="col-span-2">Ação</div>
+                    <div className="text-right">Linhas Restantes</div>
+                    <div className="text-right">Removidas</div>
+                  </div>
+                  
+                  {logs.map((log, idx) => (
+                    <div key={idx} className="grid grid-cols-4 gap-4 items-center text-sm">
+                      <div className="col-span-2 font-medium text-slate-700 flex items-center gap-2">
+                        {log.step}
+                      </div>
+                      <div className="text-right font-mono font-bold text-slate-800">{log.count}</div>
+                      <div className="text-right text-red-500 text-xs">
+                        {log.removed > 0 ? `-${log.removed}` : '-'}
+                      </div>
+                    </div>
+                  ))}
+
+                  <div className="mt-6 pt-4 border-t border-slate-100 grid grid-cols-3 gap-4">
+                     <div className="bg-slate-50 p-3 rounded-lg text-center">
+                        <p className="text-xs text-slate-500">Linhas Iniciais</p>
+                        <p className="text-xl font-bold text-slate-700">{logs[0].count}</p>
+                     </div>
+                     <div className="bg-slate-50 p-3 rounded-lg text-center">
+                        <p className="text-xs text-slate-500">Linhas Finais</p>
+                        <p className="text-xl font-bold text-indigo-600">{logs[logs.length-1].count}</p>
+                     </div>
+                     <div className="bg-slate-50 p-3 rounded-lg text-center">
+                        <p className="text-xs text-slate-500">Redução Total</p>
+                        <p className="text-xl font-bold text-green-600">
+                          {(((logs[0].count - logs[logs.length-1].count) / logs[0].count) * 100).toFixed(1)}%
+                        </p>
+                     </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {status === 'success' && filteredData.length > 0 && (
+              <div className="bg-green-50 p-6 rounded-xl border border-green-200 animate-fade-in flex flex-col md:flex-row items-center justify-between gap-4">
+                 <div className="flex items-center gap-3">
+                    <CheckCircle2 className="w-10 h-10 text-green-600" />
+                    <div>
+                      <h3 className="font-bold text-green-800 text-lg">Processamento Concluído</h3>
+                      <p className="text-green-700 text-sm">{filteredData.length} registros correspondem aos critérios.</p>
+                    </div>
+                 </div>
+                 <button 
+                    onClick={handleDownload}
+                    className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-bold shadow-sm transition-colors flex items-center gap-2"
+                 >
+                    <Download className="w-5 h-5" /> Baixar Resultado (Excel)
+                 </button>
+              </div>
+            )}
+
+            {status === 'error' && (
+               <div className="bg-red-50 p-6 rounded-xl border border-red-200 animate-fade-in flex items-center gap-3">
+                  <AlertCircle className="w-8 h-8 text-red-600" />
+                  <div>
+                     <h3 className="font-bold text-red-800">Resultado Vazio</h3>
+                     <p className="text-red-700 text-sm">{errorMessage}</p>
+                  </div>
+               </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ==================== MODO CROSS ==================== */}
+      {mode === 'cross' && (
+        <div className="space-y-8 animate-fade-in">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Input Tabela 1 */}
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-4">
+               <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                 <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs">1</div>
+                 Planilha Principal (Base)
+               </h3>
+               <p className="text-sm text-slate-500">
+                 Desta planilha serão removidos pedidos filhos (com hífen). O que sobrar será comparado.
+               </p>
+               
+               <input type="file" ref={file1Ref} onChange={handleFile1Upload} className="hidden" accept=".xlsx,.xls" />
+               <div 
+                 onClick={() => file1Ref.current?.click()}
+                 className={`border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer transition-colors h-32 ${data1.length > 0 ? 'border-indigo-300 bg-indigo-50' : 'border-slate-300 hover:bg-slate-50'}`}
+               >
+                  {data1.length > 0 ? (
+                    <div className="text-center">
+                       <FileSpreadsheet className="w-8 h-8 text-indigo-600 mx-auto mb-2" />
+                       <p className="font-bold text-indigo-900 text-sm truncate max-w-[200px]">{file1Name}</p>
+                       <p className="text-xs text-indigo-600">{data1.length} linhas</p>
+                    </div>
+                  ) : (
+                    <div className="text-center text-slate-400">
+                       <Upload className="w-6 h-6 mx-auto mb-2" />
+                       <span className="text-sm font-medium">Carregar Planilha 1</span>
+                    </div>
+                  )}
+               </div>
+            </div>
+
+            {/* Input Tabela 2 */}
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-4">
+               <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                 <div className="w-6 h-6 rounded-full bg-teal-100 text-teal-600 flex items-center justify-center text-xs">2</div>
+                 Planilha de Comparação
+               </h3>
+               <p className="text-sm text-slate-500">
+                 Desta planilha serão removidos filhos e lotes (iniciados com BR).
+               </p>
+               
+               <input type="file" ref={file2Ref} onChange={handleFile2Upload} className="hidden" accept=".xlsx,.xls" />
+               <div 
+                 onClick={() => file2Ref.current?.click()}
+                 className={`border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer transition-colors h-32 ${data2.length > 0 ? 'border-teal-300 bg-teal-50' : 'border-slate-300 hover:bg-slate-50'}`}
+               >
+                  {data2.length > 0 ? (
+                    <div className="text-center">
+                       <FileSpreadsheet className="w-8 h-8 text-teal-600 mx-auto mb-2" />
+                       <p className="font-bold text-teal-900 text-sm truncate max-w-[200px]">{file2Name}</p>
+                       <p className="text-xs text-teal-600">{data2.length} linhas</p>
+                    </div>
+                  ) : (
+                    <div className="text-center text-slate-400">
+                       <Upload className="w-6 h-6 mx-auto mb-2" />
+                       <span className="text-sm font-medium">Carregar Planilha 2</span>
+                    </div>
+                  )}
+               </div>
+            </div>
+          </div>
+
+          <div className="flex justify-center gap-4">
+             <button
+               onClick={handleCrossProcess}
+               disabled={data1.length === 0 || data2.length === 0}
+               className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-all"
+             >
+               <ArrowRightLeft className="w-5 h-5" /> Processar Cruzamento
+             </button>
+             {(data1.length > 0 || data2.length > 0) && (
+               <button onClick={handleCrossReset} className="px-4 py-3 text-slate-500 hover:text-red-600 font-medium">
+                 Limpar Tudo
+               </button>
+             )}
+          </div>
+
+          {/* Resultados Cruzamento */}
+          {crossStatus === 'success' && crossResult.length > 0 && (
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm animate-fade-in">
+              <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-6">
+                <div className="flex items-start gap-4">
+                   <div className="bg-amber-100 p-3 rounded-full">
+                     <AlertCircle className="w-8 h-8 text-amber-600" />
+                   </div>
+                   <div>
+                     <h3 className="text-xl font-bold text-slate-800">Diferenças Encontradas</h3>
+                     <p className="text-slate-600 mt-1">
+                       Foram encontrados <strong className="text-amber-600">{crossResult.length}</strong> pedidos na Planilha 1 que <span className="underline decoration-amber-500">não constam</span> na Planilha 2.
+                     </p>
+                   </div>
+                </div>
+                <button 
+                  onClick={handleCrossDownload}
+                  className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-bold shadow-sm flex items-center gap-2 whitespace-nowrap"
+                >
+                  <Download className="w-5 h-5" /> Baixar Diferença
+                </button>
+              </div>
+
+              <div className="bg-slate-50 rounded-lg border border-slate-200 overflow-hidden max-h-[400px] overflow-y-auto">
+                 <table className="w-full text-sm text-left whitespace-nowrap">
+                   <thead className="bg-slate-100 text-slate-600 font-bold sticky top-0">
+                     <tr>
+                       {Object.keys(crossResult[0] || {}).map((header, i) => (
+                         <th key={i} className="px-4 py-2 border-b">{header}</th>
+                       ))}
+                     </tr>
+                   </thead>
+                   <tbody className="divide-y divide-slate-200">
+                     {crossResult.slice(0, 100).map((row, idx) => (
+                       <tr key={idx} className="hover:bg-slate-100">
+                         {Object.values(row).map((val: any, vIdx) => (
+                           <td key={vIdx} className="px-4 py-2 text-slate-700">{val}</td>
+                         ))}
+                       </tr>
+                     ))}
+                   </tbody>
+                 </table>
+                 {crossResult.length > 100 && (
+                   <div className="p-2 text-center text-xs text-slate-500 bg-slate-100 border-t sticky bottom-0">
+                     Exibindo os primeiros 100 registros. Baixe a planilha para ver tudo.
+                   </div>
+                 )}
+              </div>
+            </div>
+          )}
+
+          {crossStatus === 'error' && (
+            <div className="bg-green-50 p-6 rounded-xl border border-green-200 flex items-center gap-4 animate-fade-in">
+               <CheckCircle2 className="w-10 h-10 text-green-600" />
+               <div>
+                 <h3 className="text-lg font-bold text-green-800">Tudo Certo!</h3>
+                 <p className="text-green-700">{crossMessage}</p>
+               </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
