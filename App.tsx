@@ -9,6 +9,7 @@ import ManagementReport from './components/ManagementReport';
 import ShippedNotArrived from './components/ShippedNotArrived';
 import SecondaryTrips from './components/SecondaryTrips';
 import SuppliesControl from './components/SuppliesControl';
+import EpiControl from './components/EpiControl';
 import QrCodeGenerator from './components/QrCodeGenerator';
 import { dataService } from './services/dataService';
 import { Loader2, AlertTriangle, Database, Copy, Check } from 'lucide-react';
@@ -31,19 +32,75 @@ CREATE TABLE IF NOT EXISTS public.daily_records (
     trips JSONB DEFAULT '[]'::jsonb
 );
 
+CREATE TABLE IF NOT EXISTS public.supplies (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    quantity NUMERIC DEFAULT 0,
+    unit TEXT DEFAULT 'un',
+    min_stock NUMERIC DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS public.supply_transactions (
+    id TEXT PRIMARY KEY,
+    supply_id TEXT REFERENCES public.supplies(id) ON DELETE CASCADE,
+    supply_name TEXT,
+    type TEXT CHECK (type IN ('IN', 'OUT')),
+    quantity NUMERIC NOT NULL,
+    date TEXT NOT NULL,
+    user_name TEXT
+);
+
+-- EPIs Tables
+CREATE TABLE IF NOT EXISTS public.epis (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    ca_number TEXT,
+    quantity NUMERIC DEFAULT 0,
+    min_stock NUMERIC DEFAULT 5,
+    validity_days NUMERIC DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS public.epi_transactions (
+    id TEXT PRIMARY KEY,
+    epi_id TEXT REFERENCES public.epis(id) ON DELETE CASCADE,
+    epi_name TEXT,
+    type TEXT CHECK (type IN ('IN', 'OUT')),
+    quantity NUMERIC NOT NULL,
+    date TEXT NOT NULL,
+    employee_id TEXT,
+    employee_name TEXT,
+    notes TEXT
+);
+
 -- Enable Row Level Security (RLS)
 ALTER TABLE public.employees ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.daily_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.supplies ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.supply_transactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.epis ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.epi_transactions ENABLE ROW LEVEL SECURITY;
 
 -- Create policies to allow public access (Adjust for production!)
 DROP POLICY IF EXISTS "Public Access Employees" ON public.employees;
 CREATE POLICY "Public Access Employees" ON public.employees FOR ALL USING (true);
 
 DROP POLICY IF EXISTS "Public Access Records" ON public.daily_records;
-CREATE POLICY "Public Access Records" ON public.daily_records FOR ALL USING (true);`;
+CREATE POLICY "Public Access Records" ON public.daily_records FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Public Access Supplies" ON public.supplies;
+CREATE POLICY "Public Access Supplies" ON public.supplies FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Public Access Transactions" ON public.supply_transactions;
+CREATE POLICY "Public Access Transactions" ON public.supply_transactions FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Public Access Epis" ON public.epis;
+CREATE POLICY "Public Access Epis" ON public.epis FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Public Access EpiTrans" ON public.epi_transactions;
+CREATE POLICY "Public Access EpiTrans" ON public.epi_transactions FOR ALL USING (true);`;
 
 function App() {
-  const [view, setView] = useState<'daily' | 'team' | 'reports' | 'generate' | 'shipped' | 'management' | 'secondary' | 'supplies' | 'qrcode'>('daily');
+  const [view, setView] = useState<'daily' | 'team' | 'reports' | 'generate' | 'shipped' | 'management' | 'secondary' | 'supplies' | 'epis' | 'qrcode'>('daily');
   
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [history, setHistory] = useState<DailyRecord[]>([]);
@@ -56,9 +113,12 @@ function App() {
     const fetchData = async () => {
       try {
         setError(null);
+        // We try to fetch all data to check connectivity and table existence
         const [empData, histData] = await Promise.all([
           dataService.getEmployees(),
-          dataService.getHistory()
+          dataService.getHistory(),
+          dataService.getSupplies(), // Check Supplies table
+          dataService.getEpis()      // Check EPIs table
         ]);
         setEmployees(empData);
         setHistory(histData);
@@ -144,7 +204,7 @@ function App() {
           
           <p className="text-slate-600 mb-6 text-center">
             {isMissingTables 
-              ? 'O banco de dados do Supabase ainda não possui as tabelas necessárias.' 
+              ? 'O banco de dados do Supabase ainda não possui as tabelas necessárias (Insumos e EPIs). Por favor, execute o script abaixo.' 
               : 'Não foi possível carregar os dados do banco de dados.'}
           </p>
 
@@ -231,6 +291,9 @@ function App() {
       )}
       {view === 'supplies' && (
         <SuppliesControl />
+      )}
+      {view === 'epis' && (
+        <EpiControl />
       )}
       {view === 'qrcode' && (
         <QrCodeGenerator />

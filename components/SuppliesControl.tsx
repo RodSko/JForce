@@ -1,54 +1,30 @@
-
-import React, { useState, useMemo } from 'react';
-import { Box, Plus, Search, Filter, ArrowUpRight, ArrowDownLeft, FileText, AlertTriangle, History, Package, User, Calendar, Trash2, Save, X, Pencil, Settings } from 'lucide-react';
-
-// --- Interfaces Locais ---
-interface SupplyItem {
-  id: string;
-  name: string;
-  quantity: number;
-  unit: string; // ex: 'un', 'cx', 'rolo'
-  minStock: number;
-}
-
-interface SupplyTransaction {
-  id: string;
-  supplyId: string;
-  supplyName: string;
-  type: 'IN' | 'OUT';
-  quantity: number;
-  date: string; // ISO String
-  user: string; // Quem retirou ou quem adicionou
-}
-
-// --- Dados Iniciais (Mock) ---
-const INITIAL_SUPPLIES: SupplyItem[] = [
-  { id: '1', name: 'Lacres de Segurança', quantity: 1500, unit: 'un', minStock: 200 },
-  { id: '2', name: 'Sacas de Ráfia', quantity: 45, unit: 'un', minStock: 50 },
-  { id: '3', name: 'Fita Adesiva Transparente', quantity: 12, unit: 'rolo', minStock: 5 },
-  { id: '4', name: 'Etiquetas Térmicas', quantity: 3, unit: 'rolo', minStock: 2 },
-];
-
-const INITIAL_HISTORY: SupplyTransaction[] = [
-  { id: 't1', supplyId: '1', supplyName: 'Lacres de Segurança', type: 'OUT', quantity: 50, date: new Date(Date.now() - 86400000).toISOString(), user: 'João Silva' },
-  { id: 't2', supplyId: '3', supplyName: 'Fita Adesiva Transparente', type: 'IN', quantity: 10, date: new Date(Date.now() - 172800000).toISOString(), user: 'Almoxarifado' },
-];
+import React, { useState, useMemo, useEffect } from 'react';
+import { Box, Plus, Search, Filter, ArrowUpRight, ArrowDownLeft, FileText, AlertTriangle, History, Package, User, Calendar, Trash2, Save, X, Pencil, Settings, Loader2, BarChart3, AlertCircle } from 'lucide-react';
+import { SupplyItem, SupplyTransaction } from '../types';
+import { dataService } from '../services/dataService';
 
 const SuppliesControl: React.FC = () => {
   // Estados
   const [view, setView] = useState<'inventory' | 'reports'>('inventory');
-  const [supplies, setSupplies] = useState<SupplyItem[]>(INITIAL_SUPPLIES);
-  const [history, setHistory] = useState<SupplyTransaction[]>(INITIAL_HISTORY);
+  const [supplies, setSupplies] = useState<SupplyItem[]>([]);
+  const [history, setHistory] = useState<SupplyTransaction[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
   // Estado para Modais
   const [showAddModal, setShowAddModal] = useState(false);
   const [showTransactionModal, setShowTransactionModal] = useState(false);
+  
+  // Novo Estado para Modal de Exclusão
+  const [itemToDelete, setItemToDelete] = useState<SupplyItem | null>(null);
+  
   const [transactionType, setTransactionType] = useState<'IN' | 'OUT'>('OUT');
   const [selectedSupply, setSelectedSupply] = useState<SupplyItem | null>(null);
 
-  // Estado de Edição
+  // Estado de Edição e Processamento
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [processing, setProcessing] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Form States
   const [newItemName, setNewItemName] = useState('');
@@ -59,6 +35,27 @@ const SuppliesControl: React.FC = () => {
   const [transQty, setTransQty] = useState(1);
   const [transUser, setTransUser] = useState('');
 
+  // Carregar dados ao montar
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [items, transactions] = await Promise.all([
+        dataService.getSupplies(),
+        dataService.getSupplyTransactions()
+      ]);
+      setSupplies(items);
+      setHistory(transactions);
+    } catch (error) {
+      console.error("Erro ao carregar insumos:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // --- Filtros ---
   const filteredSupplies = supplies.filter(item => 
     item.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -66,43 +63,45 @@ const SuppliesControl: React.FC = () => {
 
   // --- Ações ---
 
-  const handleSaveItem = () => {
+  const handleSaveItem = async () => {
     if (!newItemName) return;
+    setProcessing(true);
 
-    if (editingId) {
-      // Editar Existente
-      setSupplies(prev => prev.map(item => 
-        item.id === editingId 
-          ? { ...item, name: newItemName, unit: newItemUnit, minStock: newItemMin, quantity: newItemQty }
-          : item
-      ));
-    } else {
-      // Criar Novo
-      const newItem: SupplyItem = {
-        id: Date.now().toString(),
+    try {
+      const isNew = !editingId;
+      const itemId = editingId || `supply-${Date.now()}`;
+      
+      const itemToSave: SupplyItem = {
+        id: itemId,
         name: newItemName,
         unit: newItemUnit,
         minStock: newItemMin,
-        quantity: newItemQty
+        quantity: isNew ? newItemQty : newItemQty // Se for edição, assume o valor atualizado
       };
-      setSupplies(prev => [...prev, newItem]);
-      
-      // Registrar entrada inicial se qtd > 0 apenas na criação
-      if (newItemQty > 0) {
+
+      await dataService.saveSupply(itemToSave);
+
+      if (isNew && newItemQty > 0) {
         const trans: SupplyTransaction = {
           id: `init-${Date.now()}`,
-          supplyId: newItem.id,
-          supplyName: newItem.name,
+          supplyId: itemId,
+          supplyName: newItemName,
           type: 'IN',
           quantity: newItemQty,
           date: new Date().toISOString(),
           user: 'Cadastro Inicial'
         };
-        setHistory(prev => [trans, ...prev]);
+        await dataService.addSupplyTransaction(trans);
       }
-    }
 
-    closeModal();
+      await loadData();
+      closeModal();
+    } catch (error) {
+      console.error(error);
+      alert("Erro ao salvar item.");
+    } finally {
+      setProcessing(false);
+    }
   };
 
   const openAddModal = () => {
@@ -134,7 +133,7 @@ const SuppliesControl: React.FC = () => {
     setShowTransactionModal(true);
   };
 
-  const confirmTransaction = () => {
+  const confirmTransaction = async () => {
     if (!selectedSupply || !transUser) {
       alert("Preencha todos os campos.");
       return;
@@ -144,35 +143,58 @@ const SuppliesControl: React.FC = () => {
       return;
     }
 
-    // 1. Atualizar Estoque
-    setSupplies(prev => prev.map(s => {
-      if (s.id === selectedSupply.id) {
-        return {
-          ...s,
-          quantity: transactionType === 'IN' ? s.quantity + transQty : s.quantity - transQty
-        };
-      }
-      return s;
-    }));
+    setProcessing(true);
+    try {
+      const newQuantity = transactionType === 'IN' 
+        ? selectedSupply.quantity + transQty 
+        : selectedSupply.quantity - transQty;
 
-    // 2. Registrar Histórico
-    const newTrans: SupplyTransaction = {
-      id: Date.now().toString(),
-      supplyId: selectedSupply.id,
-      supplyName: selectedSupply.name,
-      type: transactionType,
-      quantity: transQty,
-      date: new Date().toISOString(),
-      user: transUser
-    };
+      const updatedSupply = { ...selectedSupply, quantity: newQuantity };
 
-    setHistory(prev => [newTrans, ...prev]);
-    setShowTransactionModal(false);
+      await dataService.saveSupply(updatedSupply);
+
+      const newTrans: SupplyTransaction = {
+        id: `trans-${Date.now()}`,
+        supplyId: selectedSupply.id,
+        supplyName: selectedSupply.name,
+        type: transactionType,
+        quantity: transQty,
+        date: new Date().toISOString(),
+        user: transUser
+      };
+
+      await dataService.addSupplyTransaction(newTrans);
+      
+      await loadData();
+      setShowTransactionModal(false);
+    } catch (error) {
+      console.error(error);
+      alert("Erro ao processar transação.");
+    } finally {
+      setProcessing(false);
+    }
   };
 
-  const deleteItem = (id: string) => {
-    if (confirm('Tem certeza que deseja excluir este item do estoque? O histórico será mantido.')) {
-      setSupplies(prev => prev.filter(s => s.id !== id));
+  const handleRequestDelete = (item: SupplyItem, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setItemToDelete(item);
+  };
+
+  const confirmDelete = async () => {
+    if (!itemToDelete) return;
+
+    setDeletingId(itemToDelete.id);
+    try {
+      await dataService.deleteSupply(itemToDelete.id);
+      setSupplies(prev => prev.filter(s => s.id !== itemToDelete.id));
+      await loadData(); // Reload for safety
+      setItemToDelete(null);
+    } catch (error: any) {
+      console.error("Erro delete:", error);
+      alert(`Erro: ${error.message}`);
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -191,17 +213,27 @@ const SuppliesControl: React.FC = () => {
       const outputs = history.filter(h => h.supplyId === supply.id && h.type === 'OUT');
       const totalConsumed = outputs.reduce((acc, curr) => acc + curr.quantity, 0);
       
-      // Média (Simplificada: Total Consumido / 1 mês, ou ajustável por período)
-      // Aqui vamos considerar o total histórico como base para média mensal fictícia
-      const avgMonthly = Math.round(totalConsumed); 
+      // Encontrar última movimentação
+      const lastMove = history
+        .filter(h => h.supplyId === supply.id)
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
 
       return {
         ...supply,
         totalConsumed,
-        avgMonthly
+        lastMoveDate: lastMove ? new Date(lastMove.date).toLocaleDateString('pt-BR') : '-'
       };
     });
   }, [supplies, history]);
+
+  if (loading && supplies.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-slate-500">
+        <Loader2 className="w-10 h-10 animate-spin mb-4 text-emerald-600" />
+        <p>Carregando estoque...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-10 relative">
@@ -228,7 +260,7 @@ const SuppliesControl: React.FC = () => {
           onClick={() => setView('reports')}
           className={`pb-3 text-sm font-medium flex items-center gap-2 border-b-2 transition-colors ${view === 'reports' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-slate-500 hover:text-emerald-600'}`}
         >
-          <FileText className="w-4 h-4" /> Relatórios de Uso
+          <BarChart3 className="w-4 h-4" /> Relatórios de Uso
         </button>
       </div>
 
@@ -260,37 +292,50 @@ const SuppliesControl: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredSupplies.map(item => {
               const isLowStock = item.quantity <= item.minStock;
+              const isDeleting = deletingId === item.id;
+
               return (
-                <div key={item.id} className={`bg-white rounded-xl border shadow-sm overflow-hidden flex flex-col transition-all hover:shadow-md relative group ${isLowStock ? 'border-red-200' : 'border-slate-200'}`}>
+                <div key={item.id} className={`bg-white rounded-xl border shadow-sm overflow-hidden flex flex-col transition-all hover:shadow-md ${isLowStock ? 'border-red-200' : 'border-slate-200'}`}>
                   
-                  {/* Botões de Ação (Editar/Excluir) */}
-                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button 
-                      onClick={() => openEditModal(item)}
-                      className="p-1.5 bg-white text-slate-500 hover:text-indigo-600 border border-slate-200 rounded-md shadow-sm"
-                      title="Editar"
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
-                    <button 
-                      onClick={() => deleteItem(item.id)}
-                      className="p-1.5 bg-white text-slate-500 hover:text-red-600 border border-slate-200 rounded-md shadow-sm"
-                      title="Excluir"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                  {/* Header do Card (Título + Ações) */}
+                  <div className="p-4 pb-0 flex justify-between items-start">
+                    <div className="pr-2">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-bold text-slate-800 text-lg leading-tight">{item.name}</h3>
+                        {isLowStock && (
+                          <div className="bg-red-100 text-red-700 p-1 rounded-full flex-shrink-0" title="Estoque Baixo">
+                            <AlertTriangle className="w-3 h-3" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Botões de Ação */}
+                    <div className="flex gap-1 flex-shrink-0 z-20">
+                      <button 
+                        type="button"
+                        onClick={() => openEditModal(item)}
+                        className="p-1.5 bg-slate-50 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 rounded-md transition-colors"
+                        title="Editar"
+                      >
+                        <Pencil className="w-4 h-4 pointer-events-none" />
+                      </button>
+                      
+                      <button 
+                        type="button"
+                        onClick={(e) => handleRequestDelete(item, e)}
+                        disabled={isDeleting}
+                        className="p-1.5 bg-slate-50 text-slate-500 hover:text-red-600 hover:bg-red-50 border border-slate-200 rounded-md transition-colors cursor-pointer"
+                        title="Excluir"
+                      >
+                         <Trash2 className="w-4 h-4 pointer-events-none" />
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="p-5 flex-1">
-                    <div className="flex justify-between items-start mb-2">
-                       <h3 className="font-bold text-slate-800 text-lg leading-tight pr-8">{item.name}</h3>
-                       {isLowStock && (
-                         <div className="bg-red-100 text-red-700 p-1.5 rounded-full flex-shrink-0" title="Estoque Baixo">
-                           <AlertTriangle className="w-4 h-4" />
-                         </div>
-                       )}
-                    </div>
-                    <div className="flex items-baseline gap-1 mt-4">
+                  {/* Conteúdo do Card */}
+                  <div className="px-4 pb-4 flex-1">
+                    <div className="flex items-baseline gap-1 mt-2">
                        <span className={`text-4xl font-bold ${isLowStock ? 'text-red-600' : 'text-slate-800'}`}>
                          {item.quantity}
                        </span>
@@ -299,14 +344,17 @@ const SuppliesControl: React.FC = () => {
                     <p className="text-xs text-slate-400 mt-1">Mínimo: {item.minStock} {item.unit}</p>
                   </div>
                   
-                  <div className="bg-slate-50 border-t border-slate-100 p-3 grid grid-cols-2 gap-3">
+                  {/* Rodapé com botões grandes */}
+                  <div className="bg-slate-50 border-t border-slate-100 p-3 grid grid-cols-2 gap-3 mt-auto">
                     <button 
+                      type="button"
                       onClick={() => openTransaction(item, 'IN')}
                       className="flex items-center justify-center gap-2 py-2 bg-white border border-slate-200 rounded text-green-700 text-sm font-medium hover:bg-green-50 hover:border-green-200 transition-colors"
                     >
                       <ArrowDownLeft className="w-4 h-4" /> Entrada
                     </button>
                     <button 
+                      type="button"
                       onClick={() => openTransaction(item, 'OUT')}
                       className="flex items-center justify-center gap-2 py-2 bg-white border border-slate-200 rounded text-red-700 text-sm font-medium hover:bg-red-50 hover:border-red-200 transition-colors"
                     >
@@ -329,84 +377,56 @@ const SuppliesControl: React.FC = () => {
 
       {/* === VIEW: RELATÓRIOS === */}
       {view === 'reports' && (
-        <div className="space-y-8 animate-fade-in">
-          
-          {/* Métricas de Consumo */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-              <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                <History className="w-5 h-5 text-indigo-600" />
-                Histórico Recente
-              </h3>
-              <div className="overflow-auto max-h-[300px]">
-                <table className="w-full text-sm text-left">
-                  <thead className="bg-slate-50 text-slate-500 font-medium sticky top-0">
-                    <tr>
-                      <th className="px-4 py-2">Data</th>
-                      <th className="px-4 py-2">Item</th>
-                      <th className="px-4 py-2">Tipo</th>
-                      <th className="px-4 py-2">Qtd.</th>
-                      <th className="px-4 py-2">Responsável</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {history.slice(0, 20).map(hist => (
-                      <tr key={hist.id} className="hover:bg-slate-50">
-                        <td className="px-4 py-2 text-slate-500">
-                          {new Date(hist.date).toLocaleDateString('pt-BR')} {new Date(hist.date).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}
-                        </td>
-                        <td className="px-4 py-2 font-medium text-slate-700">{hist.supplyName}</td>
-                        <td className="px-4 py-2">
-                          {hist.type === 'IN' ? (
-                            <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded font-bold">ENTRADA</span>
-                          ) : (
-                            <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded font-bold">SAÍDA</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-2 font-mono">{hist.quantity}</td>
-                        <td className="px-4 py-2 text-slate-600">{hist.user}</td>
-                      </tr>
-                    ))}
-                    {history.length === 0 && (
-                      <tr><td colSpan={5} className="p-4 text-center text-slate-400">Sem histórico</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-              <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                <FileText className="w-5 h-5 text-emerald-600" />
-                Média de Uso Mensal
-              </h3>
-              <div className="overflow-auto max-h-[300px]">
-                <table className="w-full text-sm text-left">
-                  <thead className="bg-slate-50 text-slate-500 font-medium sticky top-0">
-                    <tr>
-                      <th className="px-4 py-2">Item</th>
-                      <th className="px-4 py-2 text-right">Consumo Total</th>
-                      <th className="px-4 py-2 text-right">Média Mensal</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {reportStats.map(stat => (
-                      <tr key={stat.id}>
-                        <td className="px-4 py-3 font-medium text-slate-700">{stat.name}</td>
-                        <td className="px-4 py-3 text-right text-slate-600">{stat.totalConsumed} {stat.unit}</td>
-                        <td className="px-4 py-3 text-right font-bold text-slate-800">
-                          ~ {stat.avgMonthly} {stat.unit}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <p className="text-xs text-slate-400 mt-4 italic">
-                * Cálculo baseado no histórico total disponível.
-              </p>
-            </div>
-          </div>
+        <div className="space-y-6 animate-fade-in">
+           <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+             <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+                <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                   <History className="w-5 h-5 text-indigo-600" /> Histórico de Consumo
+                </h3>
+                <span className="text-xs text-slate-500">Total de Itens: {reportStats.length}</span>
+             </div>
+             
+             <div className="overflow-x-auto">
+               <table className="w-full text-sm text-left">
+                 <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-xs">
+                   <tr>
+                     <th className="px-6 py-4">Item</th>
+                     <th className="px-6 py-4 text-center">Total Consumido</th>
+                     <th className="px-6 py-4 text-center">Estoque Atual</th>
+                     <th className="px-6 py-4 text-right">Última Movimentação</th>
+                   </tr>
+                 </thead>
+                 <tbody className="divide-y divide-slate-100">
+                   {reportStats.map(stat => (
+                     <tr key={stat.id} className="hover:bg-slate-50">
+                       <td className="px-6 py-4">
+                         <div className="font-medium text-slate-800">{stat.name}</div>
+                         <div className="text-xs text-slate-500">Mínimo: {stat.minStock} {stat.unit}</div>
+                       </td>
+                       <td className="px-6 py-4 text-center">
+                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                           {stat.totalConsumed} {stat.unit}
+                         </span>
+                       </td>
+                       <td className="px-6 py-4 text-center font-bold text-slate-700">
+                         {stat.quantity} {stat.unit}
+                       </td>
+                       <td className="px-6 py-4 text-right text-slate-500 font-mono">
+                         {stat.lastMoveDate}
+                       </td>
+                     </tr>
+                   ))}
+                   {reportStats.length === 0 && (
+                     <tr>
+                       <td colSpan={4} className="px-6 py-8 text-center text-slate-400">
+                         Nenhum dado registrado.
+                       </td>
+                     </tr>
+                   )}
+                 </tbody>
+               </table>
+             </div>
+           </div>
         </div>
       )}
 
@@ -475,14 +495,17 @@ const SuppliesControl: React.FC = () => {
             <div className="flex gap-3 mt-6">
               <button 
                 onClick={closeModal}
+                disabled={processing}
                 className="flex-1 py-2 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 font-medium"
               >
                 Cancelar
               </button>
               <button 
                 onClick={handleSaveItem}
-                className="flex-1 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium"
+                disabled={processing}
+                className="flex-1 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium flex justify-center items-center gap-2"
               >
+                {processing && <Loader2 className="w-4 h-4 animate-spin" />}
                 Salvar
               </button>
             </div>
@@ -544,18 +567,59 @@ const SuppliesControl: React.FC = () => {
             <div className="flex gap-3 mt-6">
               <button 
                 onClick={() => setShowTransactionModal(false)}
+                disabled={processing}
                 className="flex-1 py-2 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 font-medium"
               >
                 Cancelar
               </button>
               <button 
                 onClick={confirmTransaction}
-                className={`flex-1 py-2 text-white rounded-lg hover:opacity-90 font-medium ${transactionType === 'IN' ? 'bg-green-600' : 'bg-red-600'}`}
+                disabled={processing}
+                className={`flex-1 py-2 text-white rounded-lg hover:opacity-90 font-medium flex justify-center items-center gap-2 ${transactionType === 'IN' ? 'bg-green-600' : 'bg-red-600'}`}
               >
+                 {processing && <Loader2 className="w-4 h-4 animate-spin" />}
                 Confirmar
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Modal de Confirmação de Exclusão */}
+      {itemToDelete && (
+        <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4 animate-fade-in">
+           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 relative">
+              <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-red-100 p-3 rounded-full border-4 border-white shadow-lg">
+                 <AlertTriangle className="w-8 h-8 text-red-600" />
+              </div>
+              
+              <div className="mt-6 text-center">
+                <h3 className="text-xl font-bold text-slate-800 mb-2">Excluir Insumo?</h3>
+                <div className="bg-red-50 text-red-800 p-3 rounded-lg text-sm mb-4">
+                   <p className="font-bold">Atenção!</p>
+                   <p>Você está prestes a excluir: <strong>{itemToDelete.name}</strong></p>
+                </div>
+                <p className="text-slate-500 text-sm mb-6">
+                   Isso apagará permanentemente o registro deste insumo e <strong>todo o histórico de uso</strong> associado a ele. Essa ação não pode ser desfeita.
+                </p>
+
+                <div className="flex gap-3">
+                   <button 
+                     onClick={() => setItemToDelete(null)}
+                     className="flex-1 py-3 border border-slate-300 rounded-lg text-slate-700 font-medium hover:bg-slate-50"
+                   >
+                     Cancelar
+                   </button>
+                   <button 
+                     onClick={confirmDelete}
+                     className="flex-1 py-3 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 shadow-lg flex items-center justify-center gap-2"
+                   >
+                     {deletingId ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                     Excluir Definitivamente
+                   </button>
+                </div>
+              </div>
+           </div>
         </div>
       )}
     </div>

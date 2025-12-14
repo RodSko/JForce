@@ -1,7 +1,7 @@
 import React from 'react';
-import { LayoutDashboard, Users, BarChart3, Boxes, FileText, Truck, ClipboardList, Map, Box, QrCode } from 'lucide-react';
+import { LayoutDashboard, Users, BarChart3, Boxes, FileText, Truck, ClipboardList, Map, Box, QrCode, HardHat } from 'lucide-react';
 
-type View = 'daily' | 'team' | 'reports' | 'generate' | 'shipped' | 'management' | 'secondary' | 'supplies' | 'qrcode';
+type View = 'daily' | 'team' | 'reports' | 'generate' | 'shipped' | 'management' | 'secondary' | 'supplies' | 'epis' | 'qrcode';
 
 interface Props {
   currentView: View;
@@ -18,6 +18,7 @@ const Layout: React.FC<Props> = ({ currentView, onChangeView, children }) => {
     { id: 'shipped', label: 'Expedido Mas Não Chegou', icon: Truck },
     { id: 'secondary', label: 'Viagens Secundárias', icon: Map },
     { id: 'supplies', label: 'Controle de Insumos', icon: Box },
+    { id: 'epis', label: 'Controle de EPIs', icon: HardHat },
     { id: 'qrcode', label: 'Gerar Qr Code', icon: QrCode },
     { id: 'team', label: 'Equipe', icon: Users },
   ] as const;
@@ -58,7 +59,7 @@ const Layout: React.FC<Props> = ({ currentView, onChangeView, children }) => {
         </div>
         
         <div className="p-6 border-t border-slate-800">
-          <p className="text-xs text-slate-500">v1.1.0 &bull; Logística</p>
+          <p className="text-xs text-slate-500">v1.2.0 &bull; Logística</p>
         </div>
       </nav>
 
