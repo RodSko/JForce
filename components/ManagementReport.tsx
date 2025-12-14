@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2, Loader2, Play, Package, Layers, RefreshCw, Users, Briefcase, UserX, Palmtree, MapPin, Calendar, Clock, Plus, Trash2, Truck, Send, ArrowRight, AlertTriangle, ArrowLeftRight, PackageX, Ban, Copy, Check, BarChart } from 'lucide-react';
+import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2, Loader2, Play, Package, Layers, RefreshCw, Users, Briefcase, UserX, Palmtree, MapPin, Calendar, Clock, Plus, Trash2, Truck, Send, ArrowRight, AlertTriangle, ArrowLeftRight, PackageX, Ban, Copy, Check } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { DailyRecord } from '../types';
 
@@ -64,9 +64,6 @@ const ManagementReport: React.FC<Props> = ({ history = [] }) => {
   // Data do Report
   const [reportDate, setReportDate] = useState<string>(new Date().toISOString().split('T')[0]);
   
-  // Volume Chegada (Integrado com DailyOperations)
-  const [arrivalVolume, setArrivalVolume] = useState<number>(0);
-
   // Configuração de inputs (Equipe)
   const [plannedEmployees, setPlannedEmployees] = useState<number>(17);
   const [outsourcedEmployees, setOutsourcedEmployees] = useState<number>(0);
@@ -100,12 +97,8 @@ const ManagementReport: React.FC<Props> = ({ history = [] }) => {
       } else {
         setTrips([]);
       }
-      
-      // Carregar Volume
-      setArrivalVolume(record.volume || 0);
     } else {
       setTrips([]);
-      setArrivalVolume(0);
     }
   }, [reportDate, history]);
 
@@ -115,7 +108,6 @@ const ManagementReport: React.FC<Props> = ({ history = [] }) => {
     processed: number; 
     shipped: number;
     shippedByBase: Record<string, number>;
-    arrivalVolume: number;
     planned: number;
     outsourced: number;
     absent: number;
@@ -257,7 +249,6 @@ const ManagementReport: React.FC<Props> = ({ history = [] }) => {
         processed: countProcessed,
         shipped: countShipped,
         shippedByBase: shippedByBase,
-        arrivalVolume: arrivalVolume,
         planned: plannedEmployees,
         outsourced: outsourcedEmployees,
         absent: absentEmployees,
@@ -297,7 +288,6 @@ const ManagementReport: React.FC<Props> = ({ history = [] }) => {
 
     text += `Quantidade de Pacotes Processados: ${results.processed.toLocaleString('pt-BR')}\n`;
     text += `Quantidade de Pacotes Múltiplos: ${results.multiple.toLocaleString('pt-BR')}\n`;
-    text += `Volume Chegada: ${results.arrivalVolume.toLocaleString('pt-BR')}\n`;
     text += `Quantidade de colaboradores planejados: ${results.planned}\n`;
     text += `Quantidade de terceirizados: ${formatZero(results.outsourced)}\n`;
     text += `Quantidade de colaboradores em folga/falta: ${formatZero(results.absent)}\n`;
@@ -415,16 +405,6 @@ const ManagementReport: React.FC<Props> = ({ history = [] }) => {
                 <p className="text-xs text-green-600">Pedidos únicos (Pai)</p>
               </div>
 
-              {/* Card: Volume Chegada (NOVO) */}
-              <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-6 flex flex-col items-center text-center gap-2 shadow-sm relative overflow-hidden">
-                <div className="bg-indigo-100 p-3 rounded-full mb-2">
-                  <BarChart className="w-6 h-6 text-indigo-600" />
-                </div>
-                <p className="text-sm font-semibold text-indigo-800 uppercase tracking-wide">Volume Chegada</p>
-                <p className="text-3xl font-bold text-slate-800">{results.arrivalVolume.toLocaleString('pt-BR')}</p>
-                <p className="text-xs text-indigo-600">Volumetria do Dia</p>
-              </div>
-
               {/* Card: Expedidos (Novo) */}
               <div className="bg-teal-50 border border-teal-100 rounded-xl p-6 flex flex-col items-center text-center gap-2 shadow-sm relative overflow-hidden">
                 <div className="bg-teal-100 p-3 rounded-full mb-2">
@@ -478,7 +458,7 @@ const ManagementReport: React.FC<Props> = ({ history = [] }) => {
 
             {/* Grid de Anormalidades / Qualidade */}
             <h4 className="text-lg font-bold text-slate-800 mt-8 mb-4 flex items-center gap-2 border-t pt-6 border-slate-100">
-               <AlertTriangle className="w-5 h-5 text-amber-500" /> Indicadores de Anormalidades
+               <AlertTriangle className="w-5 h-5 text-amber-500" /> Indicadores de Qualidade / Anormalidades
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                {/* Expediu mas não chegou */}
@@ -565,18 +545,6 @@ const ManagementReport: React.FC<Props> = ({ history = [] }) => {
                    type="date"
                    value={reportDate}
                    onChange={(e) => setReportDate(e.target.value)}
-                   className="px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-full"
-                 />
-              </div>
-
-              <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
-                 <label className="text-sm font-medium text-slate-700 whitespace-nowrap flex items-center gap-2">
-                   <BarChart className="w-4 h-4 text-indigo-600" /> Volume Chegada:
-                 </label>
-                 <input 
-                   type="number"
-                   value={arrivalVolume}
-                   onChange={(e) => setArrivalVolume(Number(e.target.value))}
                    className="px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-full"
                  />
               </div>

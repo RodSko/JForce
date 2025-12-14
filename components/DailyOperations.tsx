@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { DailyRecord, Employee, TaskDefinition, Assignment, TripInfo } from '../types';
 import { TASK_DEFINITIONS } from '../constants';
 import AssignmentCard from './AssignmentCard';
-import { Save, Sparkles, Loader2, Calendar, Unlock, Lock, Container, Plus, Trash2, Clock, AlertTriangle, X } from 'lucide-react';
+import { Save, Sparkles, Loader2, Calendar, Unlock, Lock, Container, Plus, Trash2, Clock, AlertTriangle, X, BarChart3, Calculator } from 'lucide-react';
 import { generateScheduleSuggestion } from '../services/geminiService';
 
 interface Props {
@@ -40,6 +40,20 @@ const DailyOperations: React.FC<Props> = ({ employees, history, onSaveRecord }) 
     }
     setAiRationale(null);
   }, [date, history]);
+
+  // Effect to Auto-Calculate Total Volume based on Trips
+  useEffect(() => {
+    // Calcula a soma apenas se houver viagens.
+    // Se não houver viagens (lista vazia), não forçamos zero para não apagar dados legados imediatamente ao carregar,
+    // mas se o usuário começar a interagir, a soma prevalece.
+    if (trips.length > 0) {
+      const total = trips.reduce((acc, trip) => acc + (trip.volume || 0), 0);
+      setVolume(total > 0 ? total : '');
+    } else if (trips.length === 0 && !history.find(h => h.date === date)?.volume) {
+       // Se não tem viagens e não tem histórico, zera/limpa
+       setVolume('');
+    }
+  }, [trips, date, history]);
 
   // Timer Logic: Check every minute
   useEffect(() => {
@@ -108,6 +122,15 @@ const DailyOperations: React.FC<Props> = ({ employees, history, onSaveRecord }) 
     });
   };
 
+  const handleTripVolumeChange = (index: number, value: string) => {
+    const numValue = value === '' ? undefined : Number(value);
+    setTrips(prev => {
+      const newTrips = [...prev];
+      newTrips[index] = { ...newTrips[index], volume: numValue };
+      return newTrips;
+    });
+  };
+
   const toggleTripUnsealed = (index: number) => {
     // 1. Calcular o novo estado das viagens
     const newTrips = [...trips];
@@ -136,10 +159,12 @@ const DailyOperations: React.FC<Props> = ({ employees, history, onSaveRecord }) 
     setTrips(newTrips);
 
     // 3. Salvar IMEDIATAMENTE no banco de dados para sincronizar com os relatórios
+    const calculatedVolume = newTrips.reduce((acc, t) => acc + (t.volume || 0), 0);
+
     const record: DailyRecord = {
       id: date,
       date,
-      volume: Number(volume) || 0,
+      volume: calculatedVolume,
       trucks: Number(trucks) || 0,
       assignments,
       trips: newTrips
@@ -150,11 +175,12 @@ const DailyOperations: React.FC<Props> = ({ employees, history, onSaveRecord }) 
   const handleSave = () => {
     // Filtra viagens com ID vazio para não sujar o banco de dados
     const cleanTrips = trips.filter(t => t.id.trim() !== '');
+    const calculatedVolume = cleanTrips.reduce((acc, t) => acc + (t.volume || 0), 0);
 
     const record: DailyRecord = {
       id: date,
       date,
-      volume: Number(volume) || 0,
+      volume: calculatedVolume,
       trucks: Number(trucks) || 0,
       assignments,
       trips: cleanTrips
@@ -163,6 +189,7 @@ const DailyOperations: React.FC<Props> = ({ employees, history, onSaveRecord }) 
     
     // Atualiza o estado local caso alguma viagem vazia tenha sido removida
     setTrips(cleanTrips);
+    setVolume(calculatedVolume > 0 ? calculatedVolume : '');
     
     alert("Dados salvos com sucesso!");
   };
@@ -245,16 +272,26 @@ const DailyOperations: React.FC<Props> = ({ employees, history, onSaveRecord }) 
               <Calendar className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
             </div>
           </div>
+          
+          {/* Volumetria Total - READ ONLY (Calculated) */}
           <div className="flex-1 md:flex-none">
-            <label className="block text-xs font-medium text-slate-500 mb-1">Volumetria</label>
-            <input
-              type="number"
-              placeholder="Ex: 5000"
-              value={volume}
-              onChange={(e) => setVolume(Number(e.target.value))}
-              className="px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm w-full md:w-32 focus:ring-2 focus:ring-blue-500 outline-none"
-            />
+            <label className="block text-xs font-medium text-slate-500 mb-1 flex items-center gap-1">
+              Volumetria Total
+              <span className="bg-slate-100 text-[10px] px-1.5 rounded-full text-slate-500 font-normal">Soma</span>
+            </label>
+            <div className="relative">
+              <input
+                type="number"
+                placeholder="0"
+                value={volume}
+                readOnly
+                className="pl-3 pr-8 py-2 bg-slate-100 text-slate-700 font-bold border border-slate-300 rounded-lg text-sm w-full md:w-32 focus:ring-2 focus:ring-slate-300 outline-none cursor-not-allowed"
+                title="Soma automática das viagens"
+              />
+              <Calculator className="w-4 h-4 text-slate-400 absolute right-2.5 top-2.5" />
+            </div>
           </div>
+
           <div className="flex-1 md:flex-none">
             <label className="block text-xs font-medium text-slate-500 mb-1">Carretas</label>
             <input
@@ -325,15 +362,32 @@ const DailyOperations: React.FC<Props> = ({ employees, history, onSaveRecord }) 
                   return (
                     <div key={idx} className={`animate-fade-in flex flex-col gap-2 p-3 rounded-lg border ${isWarning ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-100'}`}>
                        <div className="flex items-start gap-2">
-                         <div className="flex-1 flex flex-col gap-1">
-                            <input
-                              type="text"
-                              maxLength={15}
-                              placeholder="ID Viagem (15 dígitos)"
-                              value={trip.id}
-                              onChange={(e) => handleTripChange(idx, e.target.value)}
-                              className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-sm font-mono uppercase focus:ring-2 focus:ring-blue-500 outline-none placeholder:normal-case"
-                            />
+                         <div className="flex-1 flex flex-col gap-2">
+                            {/* Linha 1: ID e Volume */}
+                            <div className="flex gap-2">
+                               <div className="flex-grow">
+                                  <input
+                                    type="text"
+                                    maxLength={15}
+                                    placeholder="ID Viagem"
+                                    value={trip.id}
+                                    onChange={(e) => handleTripChange(idx, e.target.value)}
+                                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-sm font-mono uppercase focus:ring-2 focus:ring-blue-500 outline-none placeholder:normal-case placeholder:font-sans"
+                                  />
+                               </div>
+                               <div className="w-24 relative">
+                                  <input
+                                    type="number"
+                                    placeholder="Vol."
+                                    value={trip.volume || ''}
+                                    onChange={(e) => handleTripVolumeChange(idx, e.target.value)}
+                                    className="w-full pl-3 pr-7 py-2 bg-white border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                  />
+                                  <BarChart3 className="w-3 h-3 text-slate-400 absolute right-2 top-2.5" />
+                               </div>
+                            </div>
+                            
+                            {/* Linha 2: Timestamps */}
                             {trip.unsealed && trip.unsealTimestamp && (
                               <div className="flex justify-between items-center mt-1">
                                 <span className="text-[10px] text-slate-500 font-medium px-1 flex items-center gap-1">

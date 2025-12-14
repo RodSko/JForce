@@ -27,6 +27,7 @@ export interface Assignment {
 
 export interface TripInfo {
   id: string; // 15 chars alphanumeric
+  volume?: number; // Volumetria específica da viagem
   unsealed: boolean; // deslacrada
   unsealTimestamp?: string; // Data e hora do deslacre (Formatado para exibição)
   unsealTimeISO?: string; // Data ISO para cálculos de timer

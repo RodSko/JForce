@@ -10,12 +10,20 @@ interface Props {
 }
 
 const Reports: React.FC<Props> = ({ history, employees }) => {
-  // Configurar datas iniciais (Início do mês atual até hoje)
-  const today = new Date().toISOString().split('T')[0];
-  const firstDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+  // Configurar datas iniciais
+  // Padrão solicitado: Data Inicial = Hoje - 1 dia, Data Final = Hoje + 2 dias
+  const now = new Date();
+  
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  const defaultStart = yesterday.toISOString().split('T')[0];
 
-  const [startDate, setStartDate] = useState<string>(firstDayOfMonth);
-  const [endDate, setEndDate] = useState<string>(today);
+  const twoDaysAfter = new Date(now);
+  twoDaysAfter.setDate(now.getDate() + 2);
+  const defaultEnd = twoDaysAfter.toISOString().split('T')[0];
+
+  const [startDate, setStartDate] = useState<string>(defaultStart);
+  const [endDate, setEndDate] = useState<string>(defaultEnd);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('all');
 
   // Filtrar o histórico baseado no intervalo selecionado
@@ -88,7 +96,7 @@ const Reports: React.FC<Props> = ({ history, employees }) => {
 
   // 4. Prepare Trips Report Data
   const tripsData = useMemo(() => {
-    const allTrips: { date: string; id: string; unsealed: boolean; timestamp?: string }[] = [];
+    const allTrips: { date: string; id: string; volume?: number; unsealed: boolean; timestamp?: string }[] = [];
     
     // Sort history specifically for the table (Newest first)
     const sortedHistory = [...filteredHistory].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -99,6 +107,7 @@ const Reports: React.FC<Props> = ({ history, employees }) => {
           allTrips.push({
             date: day.date,
             id: trip.id,
+            volume: trip.volume,
             unsealed: !!trip.unsealed, // Force boolean conversion
             timestamp: trip.unsealTimestamp
           });
@@ -252,6 +261,7 @@ const Reports: React.FC<Props> = ({ history, employees }) => {
               <tr>
                 <th className="px-6 py-3 w-40">Data</th>
                 <th className="px-6 py-3">ID Viagem</th>
+                <th className="px-6 py-3 text-right">Volume</th>
                 <th className="px-6 py-3">Status</th>
                 <th className="px-6 py-3 text-right">Horário Deslacre</th>
               </tr>
@@ -264,6 +274,9 @@ const Reports: React.FC<Props> = ({ history, employees }) => {
                   </td>
                   <td className="px-6 py-3 font-mono text-slate-600">
                     {trip.id}
+                  </td>
+                  <td className="px-6 py-3 font-mono text-slate-600 text-right font-bold">
+                    {trip.volume ? trip.volume.toLocaleString('pt-BR') : '-'}
                   </td>
                   <td className="px-6 py-3">
                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${
@@ -282,7 +295,7 @@ const Reports: React.FC<Props> = ({ history, employees }) => {
               ))}
               {tripsData.length === 0 && (
                 <tr>
-                   <td colSpan={4} className="p-8 text-center text-slate-400 italic">
+                   <td colSpan={5} className="p-8 text-center text-slate-400 italic">
                      Nenhuma viagem registrada no período selecionado.
                    </td>
                 </tr>
