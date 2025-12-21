@@ -35,17 +35,17 @@ const AssignmentCard: React.FC<Props> = ({ task, assignments, employees, onAssig
   return (
     <div className={`bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex flex-col ${isSolto ? 'bg-slate-50/50' : ''}`}>
       <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-3">
           <div className="p-2 bg-slate-100 rounded-lg">
             {getIcon(task.category)}
           </div>
           <div>
-            <h3 className="text-sm font-bold text-slate-900 leading-none">{task.name}</h3>
-            <p className="text-[10px] text-slate-500 mt-1 font-medium">{task.description}</p>
+            <h3 className="text-sm font-black text-slate-900 leading-tight uppercase tracking-tight">{task.name}</h3>
+            <p className="text-[10px] text-slate-500 font-bold uppercase">{task.description}</p>
           </div>
         </div>
         <div className="flex flex-col items-end">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
             {currentTaskAssignments.length} / {isSolto ? '∞' : task.capacity}
           </span>
         </div>
@@ -58,45 +58,45 @@ const AssignmentCard: React.FC<Props> = ({ task, assignments, employees, onAssig
           const employee = assignment ? employees.find(e => e.id === assignment.employeeId) : null;
           
           return (
-            <div key={`${task.id}-${idx}`} className="min-h-[32px] flex items-stretch">
+            <div key={`${task.id}-${idx}`} className="min-h-[38px] flex items-stretch">
               {isDiarista ? (
-                <div className="w-full flex items-center justify-between px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-lg">
+                <div className="w-full flex items-center justify-between px-3 py-1 bg-emerald-50 border border-emerald-200 rounded-lg">
                   <div className="flex items-center gap-2">
-                    <UserPlus className="w-3 h-3 text-emerald-600" />
-                    <span className="text-xs font-bold text-emerald-800 uppercase">DIARISTA</span>
+                    <UserPlus className="w-3.5 h-3.5 text-emerald-600" />
+                    <span className="text-xs font-black text-emerald-900 uppercase">DIARISTA</span>
                   </div>
                   <button 
                     onClick={() => onAssign(task.id, idx, "")}
-                    className="text-emerald-300 hover:text-emerald-600 p-0.5"
+                    className="text-emerald-400 hover:text-emerald-600 p-1"
                     data-html2canvas-ignore
                   >
-                    <X className="w-3.5 h-3.5" />
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
               ) : assignment ? (
-                <div className="w-full flex items-center justify-between px-3 py-1.5 bg-indigo-50 border border-indigo-100 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-1.5 h-1.5 rounded-full ${employee?.gender === 'M' ? 'bg-blue-500' : 'bg-pink-500'}`} />
-                    <span className="text-xs font-bold text-slate-800 whitespace-nowrap">
+                <div className="w-full flex items-center justify-between px-3 py-1 bg-indigo-50 border border-indigo-200 rounded-lg">
+                  <div className="flex items-center gap-2 overflow-visible">
+                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${employee?.gender === 'M' ? 'bg-blue-600' : 'bg-pink-600'}`} />
+                    <span className="text-xs font-black text-slate-900 whitespace-nowrap leading-none">
                       {employee?.name || "Desconhecido"}
                     </span>
                   </div>
                   <button 
                     onClick={() => onAssign(task.id, idx, "")}
-                    className="text-indigo-200 hover:text-indigo-600 p-0.5"
+                    className="text-indigo-300 hover:text-indigo-600 p-1 ml-1"
                     data-html2canvas-ignore
                   >
-                    <X className="w-3.5 h-3.5" />
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
               ) : (
                 <div className="w-full relative" data-html2canvas-ignore>
                   <select
-                    className="w-full h-full text-[11px] px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-400 italic appearance-none cursor-pointer focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                    className="w-full h-full text-[11px] px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-400 italic appearance-none cursor-pointer focus:ring-2 focus:ring-indigo-500/20 outline-none shadow-inner"
                     value=""
                     onChange={(e) => onAssign(task.id, idx, e.target.value)}
                   >
-                    <option value="">Vago...</option>
+                    <option value="">-- Selecionar --</option>
                     <option value="diarista-id">+ ADICIONAR DIARISTA</option>
                     {employees
                       .filter(e => !assignedEmployeeIds.has(e.id) && e.active)

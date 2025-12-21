@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { DailyRecord, Employee, TaskDefinition, Assignment, TripInfo } from '../types';
 import { TASK_DEFINITIONS } from '../constants';
 import AssignmentCard from './AssignmentCard';
-import { Save, Calendar, Unlock, Lock, Container, Trash2, Calculator, RefreshCw, Info, Loader2, UserPlus, ImageDown, Share2, Plus } from 'lucide-react';
+import { Save, Calendar, Unlock, Lock, Container, Trash2, Calculator, RefreshCw, Info, Loader2, UserPlus, ImageDown, Share2, Plus, BarChart3 } from 'lucide-react';
 import { calculateAutoRotation } from '../services/rotationService';
 import html2canvas from 'html2canvas';
 
@@ -41,6 +41,7 @@ const DailyOperations: React.FC<Props> = ({ employees, history, onSaveRecord }) 
     }
   }, [date, history]);
 
+  // Cálculo automático da volumetria total baseado nas viagens
   useEffect(() => {
     if (trips.length > 0) {
       const total = trips.reduce((acc, trip) => acc + (trip.volume || 0), 0);
@@ -61,7 +62,8 @@ const DailyOperations: React.FC<Props> = ({ employees, history, onSaveRecord }) 
     setProcessing(true);
     setTimeout(() => {
       try {
-        const newAssignments = calculateAutoRotation(employees, history, assignments, diaristas);
+        const currentVolume = Number(volume) || 0;
+        const newAssignments = calculateAutoRotation(employees, history, assignments, diaristas, currentVolume);
         setAssignments(newAssignments);
       } finally {
         setProcessing(false);
@@ -80,7 +82,7 @@ const DailyOperations: React.FC<Props> = ({ employees, history, onSaveRecord }) 
       trips: trips.filter(t => t.id.trim() !== '')
     };
     onSaveRecord(record);
-    alert("Dados salvos!");
+    alert("Dados salvos com sucesso!");
   };
 
   const handleExportImage = async () => {
@@ -91,17 +93,23 @@ const DailyOperations: React.FC<Props> = ({ employees, history, onSaveRecord }) 
     try {
       const canvas = await html2canvas(reportRef.current, {
         backgroundColor: '#ffffff',
-        scale: 2,
+        scale: 2.5,
         logging: false,
         useCORS: true,
-        scrollX: 0,
-        scrollY: 0,
-        windowWidth: 1080,
+        windowWidth: 1200,
+        onclone: (clonedDoc) => {
+           const container = clonedDoc.querySelector('[data-report-container]') as HTMLElement;
+           if (container) {
+             container.style.width = '1200px';
+             container.style.padding = '40px';
+           }
+        }
       });
 
-      const image = canvas.toDataURL("image/png");
+      const image = canvas.toDataURL("image/png", 1.0);
       const link = document.createElement('a');
-      link.download = `Escala_${date}.png`;
+      const [y, m, d] = date.split('-');
+      link.download = `ESCALA_${d}_${m}_${y}.png`;
       link.href = image;
       link.click();
     } finally {
@@ -111,141 +119,206 @@ const DailyOperations: React.FC<Props> = ({ employees, history, onSaveRecord }) 
 
   const handleAddTrip = () => setTrips(prev => [...prev, { id: '', unsealed: false }]);
   const handleRemoveTrip = (idx: number) => setTrips(prev => prev.filter((_, i) => i !== idx));
+  
+  const handleTripChange = (idx: number, id: string) => {
+    const next = [...trips];
+    next[idx] = { ...next[idx], id: id.toUpperCase() };
+    setTrips(next);
+  };
+
+  const handleTripVolumeChange = (idx: number, vol: string) => {
+    const next = [...trips];
+    next[idx] = { ...next[idx], volume: vol === '' ? undefined : Number(vol) };
+    setTrips(next);
+  };
+
+  const toggleUnseal = (idx: number) => {
+    const next = [...trips];
+    const isUnsealing = !next[idx].unsealed;
+    const now = new Date();
+    next[idx] = { 
+      ...next[idx], 
+      unsealed: isUnsealing,
+      unsealTimestamp: isUnsealing ? now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : undefined
+    };
+    setTrips(next);
+  };
 
   const activeEmployeesCount = employees.filter(e => e.active).length;
   const assignedCount = assignments.filter(a => a.employeeId !== 'diarista-id').length;
 
   return (
     <div className="space-y-6">
-      {/* Controles de Interface */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap gap-4 items-end justify-between" data-html2canvas-ignore>
-        <div className="flex flex-wrap gap-4">
+      {/* Menu Superior - Oculto no PNG */}
+      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap gap-6 items-end justify-between" data-html2canvas-ignore>
+        <div className="flex flex-wrap gap-5 items-end">
+          <div className="w-44">
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Data Operação</label>
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-500/20" />
+          </div>
+          <div className="w-28">
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Diaristas</label>
+            <input type="number" min="0" value={diaristas} onChange={(e) => setDiaristas(Number(e.target.value))} className="w-full px-3 py-2 border border-emerald-200 bg-emerald-50 rounded-xl text-sm font-black text-emerald-700 outline-none" />
+          </div>
           <div className="w-40">
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Data</label>
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20" />
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Volumetria Total</label>
+            <div className="relative">
+              <input 
+                type="number" 
+                min="0" 
+                value={volume} 
+                onChange={(e) => setVolume(e.target.value === '' ? '' : Number(e.target.value))} 
+                className="w-full pl-3 pr-10 py-2 border border-indigo-200 bg-indigo-50 rounded-xl text-sm font-black text-indigo-700 outline-none focus:ring-2 focus:ring-indigo-500/20" 
+                placeholder="0"
+              />
+              <BarChart3 className="w-4 h-4 text-indigo-300 absolute right-3 top-2.5 pointer-events-none" />
+            </div>
           </div>
-          <div className="w-24">
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Diaristas</label>
-            <input type="number" value={diaristas} onChange={(e) => setDiaristas(Number(e.target.value))} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm font-bold text-emerald-600" />
-          </div>
-          <div className="w-24">
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Carretas</label>
-            <input type="number" value={trucks} onChange={(e) => setTrucks(Number(e.target.value))} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm" />
+          <div className="w-28">
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Carretas</label>
+            <input type="number" min="0" value={trucks} onChange={(e) => setTrucks(Number(e.target.value))} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm font-bold outline-none" />
           </div>
         </div>
         
         <div className="flex gap-2">
-          <button onClick={handleSmartSchedule} disabled={processing} className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-indigo-700 transition-all disabled:opacity-50">
+          <button onClick={handleSmartSchedule} disabled={processing} className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-sm font-black hover:bg-indigo-700 transition-all disabled:opacity-50">
             {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-            Distribuir Equipe
+            DISTRIBUIR
           </button>
-          <button onClick={handleExportImage} disabled={isExporting} className="flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-black transition-all">
+          <button onClick={handleExportImage} disabled={isExporting} className="flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-xl text-sm font-black hover:bg-black transition-all">
             {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImageDown className="w-4 h-4" />}
             PNG
           </button>
-          <button onClick={handleSave} className="flex items-center gap-2 bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all">
-            <Save className="w-4 h-4" /> Salvar
+          <button onClick={handleSave} className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-black hover:bg-blue-700 transition-all">
+            <Save className="w-4 h-4" /> SALVAR
           </button>
         </div>
       </div>
 
       {/* ÁREA DE CAPTURA (PNG) */}
-      <div ref={reportRef} className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 max-w-[1080px] mx-auto">
-        {/* Header Profissional */}
-        <div className="flex justify-between items-start mb-8 border-b border-slate-100 pb-8">
+      <div ref={reportRef} data-report-container className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 max-w-[1200px] mx-auto">
+        {/* Header do PNG */}
+        <div className="flex justify-between items-start mb-8 border-b-4 border-slate-900 pb-8">
           <div>
-            <h1 className="text-3xl font-black text-slate-900 tracking-tighter">ESCALA OPERACIONAL</h1>
-            <div className="flex items-center gap-2 mt-2">
-              <Calendar className="w-4 h-4 text-indigo-600" />
-              <span className="text-sm font-bold text-slate-600 uppercase tracking-wide">
+            <h1 className="text-4xl font-black text-slate-900 tracking-tighter leading-none">ESCALA OPERACIONAL</h1>
+            <div className="flex items-center gap-2 mt-3">
+              <Calendar className="w-5 h-5 text-indigo-600" />
+              <span className="text-lg font-black text-slate-700 uppercase tracking-tighter">
                 {new Date(date + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
               </span>
             </div>
           </div>
           
           <div className="flex gap-4">
-            <div className="text-right">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Volumetria</p>
-              <p className="text-3xl font-black text-indigo-600 leading-none mt-1">{volume || 0}</p>
+            <div className="bg-slate-900 p-4 rounded-2xl text-center min-w-[140px] shadow-lg">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Volumetria Total</p>
+              <p className="text-4xl font-black text-white leading-none tracking-tighter">{volume || 0}</p>
             </div>
-            <div className="h-10 w-px bg-slate-100 mx-2" />
-            <div className="text-right">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Carretas</p>
-              <p className="text-3xl font-black text-slate-900 leading-none mt-1">{trucks || 0}</p>
+            <div className="bg-white border-4 border-slate-900 p-4 rounded-2xl text-center min-w-[140px]">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Carretas</p>
+              <p className="text-4xl font-black text-slate-900 leading-none tracking-tighter">{trucks || 0}</p>
             </div>
           </div>
         </div>
 
         <div className="grid grid-cols-12 gap-8">
-          {/* Coluna Lateral: Info e Viagens */}
+          {/* Coluna de Apoio e Viagens */}
           <div className="col-span-4 space-y-6">
             <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200">
               <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                <Info className="w-3.5 h-3.5" /> Informações
+                <div className="p-1 bg-white rounded shadow-sm">
+                  <Info className="w-4 h-4 text-indigo-600" />
+                </div>
+                RESUMO EQUIPE
               </h4>
               <div className="space-y-4">
                 <div>
-                  <div className="flex justify-between text-xs font-bold mb-1.5">
-                    <span className="text-slate-500">Equipe Alocada</span>
-                    <span className="text-indigo-600">{assignedCount}/{activeEmployeesCount}</span>
+                  <div className="flex justify-between text-xs font-black mb-1.5 uppercase">
+                    <span className="text-slate-500">Alocação Atual</span>
+                    <span className="text-indigo-600">{assignedCount} / {activeEmployeesCount}</span>
                   </div>
-                  <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
-                    <div className="h-full bg-indigo-600 transition-all" style={{ width: `${(assignedCount/activeEmployeesCount)*100}%` }} />
+                  <div className="h-3 w-full bg-slate-200 rounded-full overflow-hidden border border-slate-300">
+                    <div className="h-full bg-indigo-600 transition-all shadow-[0_0_8px_rgba(79,70,229,0.3)]" style={{ width: `${(assignedCount/activeEmployeesCount)*100}%` }} />
                   </div>
                 </div>
-                <div className="pt-2 border-t border-slate-200">
-                  <p className="text-[10px] font-bold text-slate-400 mb-2 uppercase">Regras Ativas:</p>
-                  <ul className="text-[10px] font-bold text-slate-600 space-y-1">
-                    <li className="flex items-center gap-2">• Carga Pesada: Exclusivo Masc.</li>
-                    <li className="flex items-center gap-2">• Edina: Fixa Reserva</li>
-                    <li className="flex items-center gap-2">• Preferencial: Alex, Vitória, Sofia</li>
-                  </ul>
+                <div className="pt-4 border-t border-slate-200 space-y-2">
+                  <p className="text-[10px] font-black text-slate-400 uppercase">REGRAS ATIVAS:</p>
+                  <p className="text-[11px] font-black text-slate-800 flex items-center gap-2 uppercase tracking-tight">• DESC/TURN: EXCLUSIVO MASCULINO</p>
+                  <p className="text-[11px] font-black text-slate-800 flex items-center gap-2 uppercase tracking-tight">• EDINA: FIXA NO RESERVA</p>
+                  <p className="text-[11px] font-black text-indigo-700 flex items-center gap-2 uppercase tracking-tight">• ALEX: PRIORIDADE MÁXIMA RESERVA</p>
+                  <p className="text-[11px] font-black text-indigo-700 flex items-center gap-2 uppercase tracking-tight">• VITÓRIA/SOFIA: PRIORIDADE ALTA RESERVA</p>
+                  <p className="text-[11px] font-black text-slate-800 flex items-center gap-2 uppercase tracking-tight">• VOL > 12.000: ELITE NA VIRADA</p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+            {/* CARD DE VIAGENS */}
+            <div className="bg-white rounded-2xl border-2 border-slate-200 overflow-hidden shadow-sm">
               <div className="bg-slate-900 px-4 py-3 flex items-center justify-between">
-                <h4 className="text-[10px] font-bold text-white uppercase tracking-widest flex items-center gap-2">
-                  <Container className="w-3.5 h-3.5 text-indigo-400" /> Viagens
+                <h4 className="text-[10px] font-black text-white uppercase tracking-widest flex items-center gap-2">
+                  <Container className="w-4 h-4 text-indigo-400" /> CONTROLE DE VIAGENS
                 </h4>
-                <button onClick={handleAddTrip} className="text-white hover:text-indigo-300" data-html2canvas-ignore>
+                <button onClick={handleAddTrip} className="text-white hover:text-indigo-300 p-1" data-html2canvas-ignore>
                   <Plus className="w-4 h-4" />
                 </button>
               </div>
-              <div className="p-4 space-y-2">
+              <div className="p-4 space-y-4">
                 {trips.map((trip, idx) => (
-                  <div key={idx} className="flex gap-2 items-center">
-                    <div className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800">
-                      {isExporting ? (trip.id || 'SEM ID') : (
-                        <input 
-                          type="text" 
-                          value={trip.id} 
-                          onChange={(e) => {
-                            const n = [...trips];
-                            n[idx].id = e.target.value.toUpperCase();
-                            setTrips(n);
-                          }}
-                          placeholder="ID VIAGEM"
-                          className="bg-transparent w-full outline-none"
-                        />
+                  <div key={idx} className="bg-white p-3 border border-slate-200 rounded-xl shadow-sm space-y-3">
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <label className="block text-[8px] font-black text-slate-400 uppercase mb-0.5">ID VIAGEM</label>
+                        {isExporting ? (
+                           <div className="px-2 py-1.5 bg-slate-50 rounded border border-slate-200 text-xs font-black text-slate-900 uppercase">{trip.id || '---'}</div>
+                        ) : (
+                          <input type="text" value={trip.id} onChange={(e) => handleTripChange(idx, e.target.value)} placeholder="ID" className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded text-xs font-black text-slate-900 uppercase focus:ring-1 focus:ring-indigo-500 outline-none" />
+                        )}
+                      </div>
+                      <div className="w-20">
+                        <label className="block text-[8px] font-black text-slate-400 uppercase mb-0.5">VOLUME</label>
+                        {isExporting ? (
+                           <div className="px-2 py-1.5 bg-indigo-50 rounded border border-indigo-100 text-xs font-black text-indigo-700 text-center">{trip.volume || 0}</div>
+                        ) : (
+                          <input type="number" value={trip.volume || ''} onChange={(e) => handleTripVolumeChange(idx, e.target.value)} placeholder="0" className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded text-xs font-black text-indigo-600 text-center focus:ring-1 focus:ring-indigo-500 outline-none" />
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3 pt-1">
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={() => toggleUnseal(idx)} 
+                          className={`p-1.5 rounded-lg border transition-all ${trip.unsealed ? 'bg-emerald-100 text-emerald-700 border-emerald-300' : 'bg-rose-50 text-rose-700 border-rose-200'}`}
+                          title={trip.unsealed ? 'Deslacrado' : 'Lacrado'}
+                          disabled={isExporting}
+                        >
+                          {trip.unsealed ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                        </button>
+                        <div>
+                          <p className={`text-[10px] font-black uppercase leading-none ${trip.unsealed ? 'text-emerald-700' : 'text-rose-700'}`}>
+                            {trip.unsealed ? 'DESLACRADO' : 'AGUARDANDO'}
+                          </p>
+                          {trip.unsealed && (
+                            <p className="text-[9px] font-bold text-slate-500 mt-1 uppercase">HORA: {trip.unsealTimestamp}</p>
+                          )}
+                        </div>
+                      </div>
+                      {!isExporting && (
+                        <button onClick={() => handleRemoveTrip(idx)} className="text-slate-300 hover:text-red-500 p-1" data-html2canvas-ignore>
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       )}
                     </div>
-                    {!isExporting && (
-                      <button onClick={() => handleRemoveTrip(idx)} className="text-slate-300 hover:text-red-500">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
                   </div>
                 ))}
-                {trips.length === 0 && <p className="text-center py-4 text-[10px] text-slate-400 italic">Nenhuma viagem registrada</p>}
+                {trips.length === 0 && <p className="text-center py-6 text-[10px] text-slate-400 font-black uppercase tracking-widest italic">Nenhuma viagem ativa</p>}
               </div>
             </div>
           </div>
 
           {/* Grid de Tarefas */}
           <div className="col-span-8">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-5">
               {TASK_DEFINITIONS.map(task => (
                 <AssignmentCard
                   key={task.id}
@@ -259,12 +332,12 @@ const DailyOperations: React.FC<Props> = ({ employees, history, onSaveRecord }) 
           </div>
         </div>
 
-        {/* Rodapé do PNG */}
-        <div className="mt-12 pt-6 border-t border-slate-100 flex justify-between items-center opacity-40">
+        {/* Rodapé da Exportação */}
+        <div className="mt-12 pt-6 border-t border-slate-200 flex justify-between items-center opacity-50">
            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">LogiTeam Manager &copy; 2025</span>
-           <div className="flex items-center gap-2">
-             <div className="w-2 h-2 rounded-full bg-indigo-500" />
-             <span className="text-[10px] font-bold text-slate-500 uppercase">Status: Operacional Finalizado</span>
+           <div className="flex items-center gap-3">
+             <div className="w-2.5 h-2.5 rounded-full bg-indigo-600 animate-pulse" />
+             <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">RELATÓRIO OPERACIONAL FINALIZADO</span>
            </div>
         </div>
       </div>
