@@ -1,20 +1,22 @@
 import React, { useState } from 'react';
 import { Employee } from '../types';
-import { UserPlus, UserX, UserCheck, Pencil, Check, X, Loader2 } from 'lucide-react';
+import { UserPlus, UserX, UserCheck, Pencil, Check, X, Loader2, Trash2, AlertTriangle } from 'lucide-react';
 
 interface Props {
   employees: Employee[];
   onAddEmployee: (emp: Employee) => Promise<void>;
   onUpdateEmployee: (emp: Employee) => Promise<void>;
+  onDeleteEmployee: (id: string) => Promise<void>;
 }
 
-const TeamManagement: React.FC<Props> = ({ employees, onAddEmployee, onUpdateEmployee }) => {
+const TeamManagement: React.FC<Props> = ({ employees, onAddEmployee, onUpdateEmployee, onDeleteEmployee }) => {
   const [newName, setNewName] = useState('');
   const [newGender, setNewGender] = useState<'M' | 'F'>('M');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editNameValue, setEditNameValue] = useState('');
   const [editGenderValue, setEditGenderValue] = useState<'M' | 'F'>('M');
   const [loading, setLoading] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<Employee | null>(null);
 
   const handleAdd = async () => {
     if (!newName.trim()) return;
@@ -28,8 +30,11 @@ const TeamManagement: React.FC<Props> = ({ employees, onAddEmployee, onUpdateEmp
       };
       await onAddEmployee(newEmp);
       setNewName('');
-    } catch (error) {
-      alert('Erro ao adicionar colaborador. Tente novamente.');
+    } catch (error: any) {
+      console.error("Error adding employee:", error);
+      // Mostramos o erro detalhado para ajudar no diagnóstico
+      const errorDetail = error.message || (error.error_description) || JSON.stringify(error);
+      alert(`ERRO AO ADICIONAR:\n${errorDetail}\n\nNota: Certifique-se de que a coluna 'gender' existe na sua tabela 'employees' do Supabase.`);
     } finally {
       setLoading(false);
     }
@@ -38,8 +43,8 @@ const TeamManagement: React.FC<Props> = ({ employees, onAddEmployee, onUpdateEmp
   const toggleStatus = async (emp: Employee) => {
     try {
       await onUpdateEmployee({ ...emp, active: !emp.active });
-    } catch (error) {
-      alert('Erro ao atualizar status.');
+    } catch (error: any) {
+      alert(`Erro ao atualizar status: ${error.message}`);
     }
   };
 
@@ -51,17 +56,39 @@ const TeamManagement: React.FC<Props> = ({ employees, onAddEmployee, onUpdateEmp
 
   const saveEdit = async (originalEmp: Employee) => {
     if (editingId && editNameValue.trim()) {
+      setLoading(true);
       try {
-        await onUpdateEmployee({ ...originalEmp, name: editNameValue, gender: editGenderValue });
+        await onUpdateEmployee({ 
+          ...originalEmp, 
+          name: editNameValue, 
+          gender: editGenderValue 
+        });
         setEditingId(null);
-      } catch (error) {
-        alert('Erro ao salvar.');
+      } catch (error: any) {
+        console.error("Error updating employee:", error);
+        alert(`ERRO AO SALVAR:\n${error.message}`);
+      } finally {
+        setLoading(false);
       }
     }
   };
 
   const cancelEdit = () => {
     setEditingId(null);
+  };
+
+  const confirmDelete = async () => {
+    if (!itemToDelete) return;
+    setLoading(true);
+    try {
+      await onDeleteEmployee(itemToDelete.id);
+      setItemToDelete(null);
+    } catch (error: any) {
+      console.error("Error deleting employee:", error);
+      alert(`Erro ao excluir: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -174,13 +201,22 @@ const TeamManagement: React.FC<Props> = ({ employees, onAddEmployee, onUpdateEmp
                         </button>
                       </>
                     ) : (
-                      <button
-                        onClick={() => startEditing(emp)}
-                        className="text-slate-400 hover:text-indigo-600 p-1 rounded hover:bg-indigo-50"
-                        title="Editar"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </button>
+                      <>
+                        <button
+                          onClick={() => startEditing(emp)}
+                          className="text-slate-400 hover:text-indigo-600 p-1 rounded hover:bg-indigo-50"
+                          title="Editar"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setItemToDelete(emp)}
+                          className="text-slate-400 hover:text-red-600 p-1 rounded hover:bg-red-50"
+                          title="Excluir"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </>
                     )}
                     
                     <div className="h-4 w-px bg-slate-200 mx-1"></div>
@@ -204,6 +240,45 @@ const TeamManagement: React.FC<Props> = ({ employees, onAddEmployee, onUpdateEmp
           </tbody>
         </table>
       </div>
+
+      {/* Modal de Confirmação de Exclusão */}
+      {itemToDelete && (
+        <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4 animate-fade-in">
+           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 relative">
+              <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-red-100 p-3 rounded-full border-4 border-white shadow-lg">
+                 <AlertTriangle className="w-8 h-8 text-red-600" />
+              </div>
+              
+              <div className="mt-6 text-center">
+                <h3 className="text-xl font-bold text-slate-800 mb-2">Excluir Colaborador?</h3>
+                <div className="bg-red-50 text-red-800 p-3 rounded-lg text-sm mb-4">
+                   <p className="font-bold">Atenção!</p>
+                   <p>Você está prestes a excluir: <strong>{itemToDelete.name}</strong></p>
+                </div>
+                <p className="text-slate-500 text-sm mb-6">
+                   Essa ação é permanente e removerá o colaborador do banco de dados. Para apenas suspender o acesso, use a opção "Desativar".
+                </p>
+
+                <div className="flex gap-3">
+                   <button 
+                     onClick={() => setItemToDelete(null)}
+                     className="flex-1 py-3 border border-slate-300 rounded-lg text-slate-700 font-medium hover:bg-slate-50"
+                   >
+                     Cancelar
+                   </button>
+                   <button 
+                     onClick={confirmDelete}
+                     disabled={loading}
+                     className="flex-1 py-3 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"
+                   >
+                     {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                     Excluir Agora
+                   </button>
+                </div>
+              </div>
+           </div>
+        </div>
+      )}
     </div>
   );
 };

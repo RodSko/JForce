@@ -10,25 +10,58 @@ export const dataService = {
       .select('*')
       .order('name');
     
-    if (error) throw error;
+    if (error) {
+      console.error("Erro ao buscar funcionários:", error);
+      throw error;
+    }
     return data || [];
   },
 
   async createEmployee(employee: Employee): Promise<void> {
+    // Garantimos que os nomes das propriedades batem exatamente com as colunas do DB
     const { error } = await supabase
       .from('employees')
-      .insert(employee);
+      .insert([
+        {
+          id: employee.id,
+          name: employee.name,
+          active: employee.active,
+          gender: employee.gender
+        }
+      ]);
     
-    if (error) throw error;
+    if (error) {
+      console.error("Erro detalhado do Supabase ao criar:", error);
+      throw error;
+    }
   },
 
   async updateEmployee(employee: Employee): Promise<void> {
     const { error } = await supabase
       .from('employees')
-      .update({ name: employee.name, active: employee.active })
+      .update({ 
+        name: employee.name, 
+        active: employee.active,
+        gender: employee.gender
+      })
       .eq('id', employee.id);
     
-    if (error) throw error;
+    if (error) {
+      console.error("Erro detalhado do Supabase ao atualizar:", error);
+      throw error;
+    }
+  },
+
+  async deleteEmployee(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('employees')
+      .delete()
+      .eq('id', id);
+    
+    if (error) {
+      console.error("Erro detalhado do Supabase ao excluir:", error);
+      throw error;
+    }
   },
 
   // --- Daily Records ---
@@ -41,7 +74,6 @@ export const dataService = {
     
     if (error) throw error;
     
-    // Sanitize data to ensure arrays are never null/undefined
     return (data || []).map((record: any) => ({
       id: record.id,
       date: record.date,
@@ -53,7 +85,6 @@ export const dataService = {
   },
 
   async saveDailyRecord(record: DailyRecord): Promise<void> {
-    // Upsert (Insert or Update) based on ID (date)
     const { error } = await supabase
       .from('daily_records')
       .upsert({
@@ -102,25 +133,12 @@ export const dataService = {
   },
 
   async deleteSupply(id: string): Promise<void> {
-    // 1. Tentar excluir transações primeiro
-    const { error: transError } = await supabase
-      .from('supply_transactions')
-      .delete()
-      .eq('supply_id', id);
-    
-    if (transError) {
-       console.error("Erro ao limpar transações de insumo (não fatal se CASCADE existir):", transError);
-    }
-
-    // 2. Excluir o item principal
     const { error } = await supabase
       .from('supplies')
       .delete()
       .eq('id', id);
     
-    if (error) {
-      throw new Error(`Não foi possível excluir o item: ${error.message} (${error.details || ''})`);
-    }
+    if (error) throw error;
   },
 
   // --- Supply Transactions ---
@@ -160,7 +178,7 @@ export const dataService = {
     if (error) throw error;
   },
 
-  // --- EPIs (PPEs) ---
+  // --- EPIs ---
 
   async getEpis(): Promise<EpiItem[]> {
     const { data, error } = await supabase
@@ -196,25 +214,12 @@ export const dataService = {
   },
 
   async deleteEpi(id: string): Promise<void> {
-    // 1. Tentar excluir transações
-    const { error: transError } = await supabase
-      .from('epi_transactions')
-      .delete()
-      .eq('epi_id', id);
-
-    if (transError) {
-      console.error("Erro ao limpar transações de EPI:", transError);
-    }
-
-    // 2. Excluir EPI
     const { error } = await supabase
       .from('epis')
       .delete()
       .eq('id', id);
 
-    if (error) {
-       throw new Error(`Erro ao excluir EPI: ${error.message} (${error.details || ''})`);
-    }
+    if (error) throw error;
   },
 
   async getEpiTransactions(): Promise<EpiTransaction[]> {

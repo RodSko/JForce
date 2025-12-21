@@ -20,8 +20,12 @@ const SETUP_SQL = `-- Run this in your Supabase SQL Editor
 CREATE TABLE IF NOT EXISTS public.employees (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
-    active BOOLEAN DEFAULT TRUE
+    active BOOLEAN DEFAULT TRUE,
+    gender TEXT DEFAULT 'M'
 );
+
+-- Ensure gender column exists if table was already created
+ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS gender TEXT DEFAULT 'M';
 
 CREATE TABLE IF NOT EXISTS public.daily_records (
     id TEXT PRIMARY KEY, -- YYYY-MM-DD
@@ -172,6 +176,11 @@ function App() {
     setEmployees(prev => prev.map(e => e.id === updatedEmp.id ? updatedEmp : e));
   };
 
+  const handleDeleteEmployee = async (id: string) => {
+    await dataService.deleteEmployee(id);
+    setEmployees(prev => prev.filter(e => e.id !== id));
+  };
+
   const copySqlToClipboard = () => {
     navigator.clipboard.writeText(SETUP_SQL);
     setCopied(true);
@@ -269,6 +278,7 @@ function App() {
           employees={employees} 
           onAddEmployee={handleAddEmployee}
           onUpdateEmployee={handleUpdateEmployee}
+          onDeleteEmployee={handleDeleteEmployee}
         />
       )}
       {view === 'reports' && (

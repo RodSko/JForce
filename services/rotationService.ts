@@ -3,101 +3,157 @@ import { TASK_DEFINITIONS } from '../constants';
 
 /**
  * Algoritmo de Escalonamento Automático Baseado em Regras
+ * 1. Respeita alocações manuais.
+ * 2. Aloca Diaristas: 2 na Descarga, TODO O RESTO no Ensacamento (sem limite).
+ * 3. Reserva 'Edina' fixamente para 'Solto'.
+ * 4. Dá preferência a 'Alex' (P1) e 'Vitória/Sofia' (P2) para 'Solto'.
+ * 5. Preenche postos obrigatórios restantes por prioridade.
  */
 export const calculateAutoRotation = (
   employees: Employee[],
   history: DailyRecord[],
-  currentAssignments: Assignment[]
+  currentAssignments: Assignment[],
+  diaristaCount: number = 0
 ): Assignment[] => {
-  // 1. Identificar colaboradores ativos
   const activeEmployees = employees.filter(e => e.active);
-  
-  // 2. Separar quem já foi alocado manualmente
-  const manualEmployeeIds = new Set(currentAssignments.filter(a => a.isManual).map(a => a.employeeId));
-  const availableEmployees = activeEmployees.filter(e => !manualEmployeeIds.has(e.id));
+  const manualAssignments = currentAssignments.filter(a => a.isManual);
+  const manualEmployeeIds = new Set(manualAssignments.map(a => a.employeeId));
+  let availablePool = activeEmployees.filter(e => !manualEmployeeIds.has(e.id));
 
-  // 3. Preparar lista de todos os slots vazios (exceto a categoria SOLTO que é o destino final)
-  const taskSlots: { taskId: string; slotIndex: number; category: TaskCategory }[] = [];
+  const normalize = (name: string) => 
+    name.trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+  
+  // Reservas Especiais de Funcionários
+  const edina = availablePool.find(e => normalize(e.name) === 'edina');
+  let reservedStrictlyForSolto: Employee[] = [];
+  if (edina) {
+    reservedStrictlyForSolto.push(edina);
+    availablePool = availablePool.filter(e => e.id !== edina.id);
+  }
+
+  const p1Names = ['alex'];
+  let poolP1 = availablePool.filter(e => p1Names.includes(normalize(e.name)));
+  
+  const p2Names = ['vitoria', 'sofia'];
+  let poolP2 = availablePool.filter(e => p2Names.includes(normalize(e.name)));
+  
+  let standardPool = availablePool.filter(e => 
+    !p1Names.includes(normalize(e.name)) && 
+    !p2Names.includes(normalize(e.name))
+  );
+
+  const newAssignments: Assignment[] = [...manualAssignments];
+  let diaristasRemaining = diaristaCount;
+
+  // --- REGRA DE DIARISTAS ---
+  
+  // 1. Primeiros 2 Diaristas -> Descarga (task-unload)
+  const unloadTask = TASK_DEFINITIONS.find(t => t.id === 'task-unload');
+  if (unloadTask) {
+    for (let i = 0; i < unloadTask.capacity; i++) {
+      const isOccupied = newAssignments.some(a => a.taskId === unloadTask.id && a.slotIndex === i);
+      if (!isOccupied && diaristasRemaining > 0) {
+        newAssignments.push({ taskId: unloadTask.id, slotIndex: i, employeeId: 'diarista-id', isManual: false });
+        diaristasRemaining--;
+      }
+    }
+  }
+
+  // 2. TODO O RESTANTE dos Diaristas -> Ensacamento (task-bagging)
+  // Independente da capacidade original, o ensacamento absorve todos
+  const baggingTask = TASK_DEFINITIONS.find(t => t.id === 'task-bagging');
+  if (baggingTask && diaristasRemaining > 0) {
+    let slotIdx = 0;
+    while (diaristasRemaining > 0) {
+      // Procura o próximo slot vago (respeitando manuais)
+      const isOccupied = newAssignments.some(a => a.taskId === baggingTask.id && a.slotIndex === slotIdx);
+      if (!isOccupied) {
+        newAssignments.push({ taskId: baggingTask.id, slotIndex: slotIdx, employeeId: 'diarista-id', isManual: false });
+        diaristasRemaining--;
+      }
+      slotIdx++;
+    }
+  }
+
+  // --- FIM REGRA DE DIARISTAS ---
+
+  // Slots vazios restantes em tarefas obrigatórias (excluindo Solto)
+  const taskSlots: { taskId: string; slotIndex: number; category: TaskCategory; priority: number }[] = [];
   TASK_DEFINITIONS.forEach(task => {
     if (task.category !== TaskCategory.SOLTO) {
+      // Para o ensacamento, a capacidade pode ter sido estourada pelos diaristas, 
+      // então só geramos slots de funcionários se ainda estiver dentro da capacidade original
       for (let i = 0; i < task.capacity; i++) {
-        // Verificar se este slot já está ocupado manualmente
-        const isOccupied = currentAssignments.some(a => a.taskId === task.id && a.slotIndex === i);
+        const isOccupied = newAssignments.some(a => a.taskId === task.id && a.slotIndex === i);
         if (!isOccupied) {
-          taskSlots.push({ taskId: task.id, slotIndex: i, category: task.category });
+          let priority = 3;
+          if (task.category === TaskCategory.TURN) priority = 1; 
+          else if (task.category === TaskCategory.UNLOAD) priority = 2;
+          taskSlots.push({ taskId: task.id, slotIndex: i, category: task.category, priority });
         }
       }
     }
   });
 
-  const newAssignments: Assignment[] = [...currentAssignments.filter(a => a.isManual)];
-  let remainingPool = [...availableEmployees];
+  taskSlots.sort((a, b) => a.priority - b.priority);
 
-  // 4. Função para calcular "Score de Prioridade" baseado no histórico
-  // Quanto maior o retorno, mais tempo faz que o colaborador não executa a tarefa
-  const getTaskPriorityScore = (employeeId: string, taskId: string): number => {
-    let daysSince = 999; // Valor alto para quem nunca fez
-    
-    // Ordenar histórico do mais recente para o mais antigo
+  const getTaskHistoryScore = (employeeId: string, taskId: string): number => {
     const sortedHistory = [...history].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
     for (let i = 0; i < sortedHistory.length; i++) {
-      const record = sortedHistory[i];
-      const wasInTask = record.assignments.some(a => a.employeeId === employeeId && a.taskId === taskId);
-      
-      if (wasInTask) {
-        // Se ele fez a tarefa ontem (primeiro registro do histórico), score 0 (baixa prioridade)
-        if (i === 0) return 0;
-        return i; // Score é a distância no tempo
+      if (sortedHistory[i].assignments.some(a => a.employeeId === employeeId && a.taskId === taskId)) {
+        return i;
       }
     }
-    return daysSince;
+    return 999;
   };
 
-  // 5. Preencher os slots seguindo as restrições
+  // Preencher slots obrigatórios com funcionários fixos
   taskSlots.forEach(slot => {
-    if (remainingPool.length === 0) return;
+    let currentCandidatesPool: Employee[] = [];
+    if (standardPool.length > 0) currentCandidatesPool = standardPool;
+    else if (poolP2.length > 0) currentCandidatesPool = poolP2;
+    else currentCandidatesPool = poolP1;
+    
+    if (currentCandidatesPool.length === 0) return;
 
-    // Filtrar candidatos válidos para o slot
-    let candidates = remainingPool.filter(emp => {
-      // Regra de Gênero: Mulheres não viram pacote
-      if (slot.category === TaskCategory.TURN && emp.gender === 'F') {
-        return false;
-      }
+    let candidates = currentCandidatesPool.filter(emp => {
+      if ((slot.category === TaskCategory.TURN || slot.category === TaskCategory.UNLOAD) && emp.gender === 'F') return false;
       return true;
     });
 
+    if (candidates.length === 0) {
+      const fallbackPools = [poolP2, poolP1];
+      for (const fPool of fallbackPools) {
+        candidates = fPool.filter(emp => {
+          if ((slot.category === TaskCategory.TURN || slot.category === TaskCategory.UNLOAD) && emp.gender === 'F') return false;
+          return true;
+        });
+        if (candidates.length > 0) break;
+      }
+    }
+
     if (candidates.length > 0) {
-      // Ordenar candidatos por quem está há mais tempo sem fazer essa tarefa específica (Score)
-      candidates.sort((a, b) => {
-        const scoreA = getTaskPriorityScore(a.id, slot.taskId);
-        const scoreB = getTaskPriorityScore(b.id, slot.taskId);
-        return scoreB - scoreA; // Maior score (mais tempo sem fazer) primeiro
-      });
-
+      candidates.sort((a, b) => getTaskHistoryScore(b.id, slot.taskId) - getTaskHistoryScore(a.id, slot.taskId));
       const chosen = candidates[0];
-      newAssignments.push({
-        taskId: slot.taskId,
-        slotIndex: slot.slotIndex,
-        employeeId: chosen.id,
-        isManual: false
-      });
-
-      // Remover do pool de disponíveis
-      remainingPool = remainingPool.filter(e => e.id !== chosen.id);
+      newAssignments.push({ taskId: slot.taskId, slotIndex: slot.slotIndex, employeeId: chosen.id, isManual: false });
+      standardPool = standardPool.filter(e => e.id !== chosen.id);
+      poolP2 = poolP2.filter(e => e.id !== chosen.id);
+      poolP1 = poolP1.filter(e => e.id !== chosen.id);
     }
   });
 
-  // 6. Lógica de Excedente: Todos que sobraram vão para "SOLTO"
+  // Alocar funcionários que sobraram no Solto
   const soltoTask = TASK_DEFINITIONS.find(t => t.category === TaskCategory.SOLTO);
   if (soltoTask) {
-    remainingPool.forEach((emp, idx) => {
-      newAssignments.push({
-        taskId: soltoTask.id,
-        slotIndex: idx, // No SOLTO o index é incremental para os que sobraram
-        employeeId: emp.id,
-        isManual: false
-      });
+    const finalSoltos = [...reservedStrictlyForSolto, ...poolP1, ...poolP2, ...standardPool];
+    
+    finalSoltos.forEach((emp) => {
+      let slotIdx = 0;
+      while (newAssignments.some(a => a.taskId === soltoTask.id && a.slotIndex === slotIdx)) slotIdx++;
+      newAssignments.push({ taskId: soltoTask.id, slotIndex: slotIdx, employeeId: emp.id, isManual: false });
     });
   }
 

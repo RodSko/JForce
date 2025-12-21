@@ -41,6 +41,7 @@ export interface DailyRecord {
   date: string;
   volume: number;
   trucks: number;
+  diaristaCount: number;
   assignments: Assignment[];
   trips?: TripInfo[];
 }

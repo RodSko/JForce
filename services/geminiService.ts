@@ -14,7 +14,6 @@ export const generateScheduleSuggestion = async (
 
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-  // Prepare context for the model
   const activeEmployees = employees.filter(e => e.active).map(e => ({
     id: e.id,
     name: e.name,
@@ -38,19 +37,22 @@ export const generateScheduleSuggestion = async (
     Active team (${activeEmployees.length} people): ${JSON.stringify(activeEmployees)}.
     
     CRITICAL RULES:
-    1. Gender Rule: Females (gender: 'F') CANNOT be assigned to 'Virar Pacote' (task-turn).
-    2. Rotation Rule: Employees should not repeat the same task they did recently until they've rotated through others.
-    3. Mandatory Slots: Fill slots for these tasks first: ${JSON.stringify(TASK_DEFINITIONS.filter(t => t.id !== 'task-solto').map(t => ({ id: t.id, name: t.name, capacity: t.capacity })))}.
-    4. Surplus Logic: If there are more employees than mandatory task slots, assign the remainder to 'Solto / Reserva' (task-solto).
-    5. Manual Overrides: These positions are already filled manually (do not change them): ${JSON.stringify(manualAssignments.map(m => {
-        const emp = employees.find(e => e.id === m.employeeId);
-        return { taskId: m.taskId, slotIndex: m.slotIndex, employeeName: emp?.name };
-    }))}.
+    1. Gender Rule: Females (gender: 'F') CANNOT do 'Virar Pacote' or 'Descarregar Carreta'.
+    2. EDINA Rule: She must ALWAYS be in 'Solto / Reserva' (task-solto).
+    3. ALEX, VITÓRIA and SOFIA Rule (IMPORTANT): 
+       - They all prefer 'Solto / Reserva'.
+       - ALEX has the highest priority to stay 'Solto'.
+       - VITÓRIA and SOFIA have the second highest priority to stay 'Solto'.
+       - Only assign them to mandatory tasks (Fishing/Bagging/Unload/Turn) if you run out of all other available employees.
+    4. Rotation: Avoid repeating the same task for the same person if possible.
+    5. Mandatory: Fill all slots for Fishing and Bagging first.
+    6. Completeness: EVERY active employee must be assigned to exactly one task. No one should be left out.
     
-    Recent History for rotation:
-    ${JSON.stringify(recentHistory)}
+    Manual Overrides (Fixed): ${JSON.stringify(manualAssignments)}.
     
-    GOAL: Create a fair daily roster for ${targetDate}. Ensure every active employee has a position.
+    Recent History: ${JSON.stringify(recentHistory)}
+    
+    GOAL: Create a fair daily roster for ${targetDate}.
     Return a JSON object with 'rationale' and 'assignments' array.
   `;
 

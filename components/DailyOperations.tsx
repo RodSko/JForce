@@ -1,10 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
 import { DailyRecord, Employee, TaskDefinition, Assignment, TripInfo } from '../types';
 import { TASK_DEFINITIONS } from '../constants';
 import AssignmentCard from './AssignmentCard';
-// Added Loader2 to the lucide-react imports to fix the 'Cannot find name Loader2' error
-import { Save, Calendar, Unlock, Lock, Container, Plus, Trash2, Clock, AlertTriangle, X, BarChart3, Calculator, RefreshCw, Info, Loader2 } from 'lucide-react';
+import { Save, Calendar, Unlock, Lock, Container, Trash2, Calculator, RefreshCw, Info, Loader2, UserPlus } from 'lucide-react';
 import { calculateAutoRotation } from '../services/rotationService';
 
 interface Props {
@@ -17,6 +15,7 @@ const DailyOperations: React.FC<Props> = ({ employees, history, onSaveRecord }) 
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [volume, setVolume] = useState<number | ''>('');
   const [trucks, setTrucks] = useState<number | ''>('');
+  const [diaristas, setDiaristas] = useState<number>(0);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [trips, setTrips] = useState<TripInfo[]>([]);
   const [processing, setProcessing] = useState(false);
@@ -26,11 +25,13 @@ const DailyOperations: React.FC<Props> = ({ employees, history, onSaveRecord }) 
     if (existing) {
       setVolume(existing.volume);
       setTrucks(existing.trucks);
+      setDiaristas(existing.diaristaCount || 0);
       setAssignments(existing.assignments);
       setTrips(existing.trips || []);
     } else {
       setVolume('');
       setTrucks('');
+      setDiaristas(0);
       setAssignments([]);
       setTrips([]);
     }
@@ -47,24 +48,19 @@ const DailyOperations: React.FC<Props> = ({ employees, history, onSaveRecord }) 
 
   const handleAssign = (taskId: string, slotIndex: number, employeeId: string) => {
     setAssignments(prev => {
-      // Remove alocação existente desse slot
       const filtered = prev.filter(a => !(a.taskId === taskId && a.slotIndex === slotIndex));
       if (!employeeId) return filtered;
       
-      // Remove o colaborador de qualquer outra posição que ele estivesse (evita duplicidade)
       const withoutEmployee = filtered.filter(a => a.employeeId !== employeeId);
-      
-      // Adiciona como manual
       return [...withoutEmployee, { taskId, employeeId, slotIndex, isManual: true }];
     });
   };
 
   const handleSmartSchedule = () => {
     setProcessing(true);
-    // Pequeno timeout apenas para feedback visual de processamento
     setTimeout(() => {
       try {
-        const newAssignments = calculateAutoRotation(employees, history, assignments);
+        const newAssignments = calculateAutoRotation(employees, history, assignments, diaristas);
         setAssignments(newAssignments);
       } catch (e) {
         alert("Erro ao calcular escala.");
@@ -82,12 +78,11 @@ const DailyOperations: React.FC<Props> = ({ employees, history, onSaveRecord }) 
       date,
       volume: calculatedVolume,
       trucks: Number(trucks) || 0,
+      diaristaCount: diaristas,
       assignments,
       trips: cleanTrips
     };
     onSaveRecord(record);
-    setTrips(cleanTrips);
-    setVolume(calculatedVolume > 0 ? calculatedVolume : '');
     alert("Dados salvos com sucesso!");
   };
 
@@ -123,29 +118,43 @@ const DailyOperations: React.FC<Props> = ({ employees, history, onSaveRecord }) 
   };
 
   const activeEmployeesCount = employees.filter(e => e.active).length;
-  const assignedCount = assignments.length;
+  const assignedCount = assignments.filter(a => a.employeeId !== 'diarista-id').length;
 
   return (
     <div className="space-y-6">
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 justify-between items-end">
-        <div className="flex gap-4 items-end w-full md:w-auto">
-          <div className="flex-1 md:flex-none">
+        <div className="flex flex-wrap gap-4 items-end w-full md:w-auto">
+          <div className="min-w-[140px]">
             <label className="block text-xs font-medium text-slate-500 mb-1">Data</label>
             <div className="relative">
               <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-indigo-500" />
               <Calendar className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
             </div>
           </div>
-          <div className="flex-1 md:flex-none">
-            <label className="block text-xs font-medium text-slate-500 mb-1">Volumetria Total</label>
+          <div className="min-w-[120px]">
+            <label className="block text-xs font-medium text-slate-500 mb-1">Volumetria</label>
             <div className="relative">
-              <input type="number" value={volume} readOnly className="pl-3 pr-8 py-2 bg-slate-100 text-slate-700 font-bold border border-slate-300 rounded-lg text-sm w-full md:w-32 cursor-not-allowed" />
+              <input type="number" value={volume} readOnly className="pl-3 pr-8 py-2 bg-slate-100 text-slate-700 font-bold border border-slate-300 rounded-lg text-sm w-full cursor-not-allowed" />
               <Calculator className="w-4 h-4 text-slate-400 absolute right-2.5 top-2.5" />
             </div>
           </div>
-          <div className="flex-1 md:flex-none">
+          <div className="w-20">
             <label className="block text-xs font-medium text-slate-500 mb-1">Carretas</label>
-            <input type="number" value={trucks} onChange={(e) => setTrucks(Number(e.target.value))} className="px-3 py-2 border border-slate-300 rounded-lg text-sm w-full md:w-24 outline-none focus:ring-2 focus:ring-indigo-500" />
+            <input type="number" value={trucks} onChange={(e) => setTrucks(Number(e.target.value))} className="px-3 py-2 border border-slate-300 rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div className="w-24">
+            <label className="block text-xs font-medium text-slate-500 mb-1 flex items-center gap-1">
+              Diaristas
+              <UserPlus className="w-3 h-3 text-emerald-500" />
+            </label>
+            <input 
+              type="number" 
+              min="0"
+              max="10"
+              value={diaristas} 
+              onChange={(e) => setDiaristas(Math.max(0, Number(e.target.value)))} 
+              className="px-3 py-2 border border-emerald-200 bg-emerald-50 text-emerald-800 font-bold rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-emerald-500" 
+            />
           </div>
         </div>
         <div className="flex gap-3 w-full md:w-auto">
@@ -153,7 +162,6 @@ const DailyOperations: React.FC<Props> = ({ employees, history, onSaveRecord }) 
              onClick={handleSmartSchedule} 
              disabled={processing} 
              className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
-             title="Distribui os colaboradores ativos seguindo as regras de rotação e gênero"
            >
             {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
             Distribuir Equipe
@@ -184,10 +192,11 @@ const DailyOperations: React.FC<Props> = ({ employees, history, onSaveRecord }) 
               <Info className="w-3 h-3" /> Regras do Sistema
             </div>
             <ul className="list-disc list-inside space-y-1">
-              <li>Colaboradores fixados manualmente são preservados.</li>
-              <li>Mulheres não são alocadas em "Virar Pacote".</li>
-              <li>O sistema prioriza quem está há mais tempo sem fazer a função.</li>
-              <li>Excedentes são movidos automaticamente para "Solto".</li>
+              <li><strong>Diaristas:</strong> 2 primeiros na Descarga. <strong>TODO O RESTANTE</strong> vai para o Ensacamento (slots extras criados).</li>
+              <li><strong>Diaristas NUNCA</strong> ficam no posto "Solto".</li>
+              <li><strong>Edina:</strong> Reserva fixa no "Solto".</li>
+              <li><strong>Alex:</strong> Prioridade máxima para ficar "Solto".</li>
+              <li><strong>Vitória/Sofia:</strong> Preferência secundária para o "Solto".</li>
             </ul>
           </div>
           
