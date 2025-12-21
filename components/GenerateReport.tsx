@@ -43,10 +43,10 @@ const GenerateReport: React.FC<Props> = () => {
   const [totalExpedited, setTotalExpedited] = useState<number>(0);
 
   // --- SHARED HELPERS ---
-  const findColumnName = (row: any, candidates: string[]): string | undefined => {
+  const findColumnName = (row: any, possibleNames: string[]): string | undefined => {
     if (!row) return undefined;
     const keys = Object.keys(row);
-    for (const name of candidates) {
+    for (const name of possibleNames) {
       const found = keys.find(k => k.trim().toLowerCase() === name.toLowerCase());
       if (found) return found;
     }
@@ -72,6 +72,14 @@ const GenerateReport: React.FC<Props> = () => {
   };
 
   // --- VISUAL REPORT HANDLERS ---
+
+  const handlePddChange = (idx: number, newValue: string) => {
+    setReportData(prev => {
+      const next = [...prev];
+      next[idx] = { ...next[idx], pdd: newValue.toUpperCase() };
+      return next;
+    });
+  };
 
   const triggerFileInput = () => {
     setImportStatus('idle');
@@ -266,8 +274,13 @@ const GenerateReport: React.FC<Props> = () => {
   const handleExportToPNG = async () => {
     if (!reportContainerRef.current) return;
     try {
-      const canvas = await html2canvas(reportContainerRef.current, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
-      const image = canvas.toDataURL("image/png");
+      const canvas = await html2canvas(reportContainerRef.current, { 
+        scale: 2.5, 
+        backgroundColor: '#ffffff', 
+        useCORS: true,
+        logging: false 
+      });
+      const image = canvas.toDataURL("image/png", 1.0);
       const link = document.createElement('a');
       link.href = image;
       link.download = `Relatorio_Visual_${new Date().toISOString().split('T')[0]}.png`;
@@ -444,7 +457,19 @@ const GenerateReport: React.FC<Props> = () => {
                         {vehiclePhotos[item.id] ? <img src={vehiclePhotos[item.id]} alt={`Veículo ${item.id}`} className="max-w-full max-h-full w-auto h-auto object-contain" /> : <><Camera className="w-10 h-10 mb-2 opacity-40 group-hover:opacity-100 group-hover:scale-110 transition-all text-slate-500" /><span className="text-xs uppercase font-bold tracking-wider text-slate-500">Adicionar Foto</span></>}
                       </div>
                       <div className="text-sm">
-                        <div className="grid grid-cols-2 border-b border-slate-300"><div className="bg-slate-200 p-2 font-bold text-slate-800 text-xs flex items-center">NOME DA LINHA</div><div className="p-2 font-mono text-slate-900 font-bold flex items-center justify-center text-center">{item.pdd || '-'}</div></div>
+                        <div className="grid grid-cols-2 border-b border-slate-300">
+                          <div className="bg-slate-200 p-2 font-bold text-slate-800 text-xs flex items-center">NOME DA LINHA</div>
+                          <div className="flex items-center justify-center bg-indigo-50/20 p-1">
+                            <input
+                              type="text"
+                              value={item.pdd || ''}
+                              onChange={(e) => handlePddChange(idx, e.target.value)}
+                              placeholder="DIGITE..."
+                              className="w-full h-10 bg-white border border-slate-300 rounded pl-3 pr-1 text-left font-mono text-slate-900 font-bold uppercase focus:ring-1 focus:ring-indigo-500 outline-none text-[13px] leading-[38px] tracking-tighter"
+                              autoComplete="off"
+                            />
+                          </div>
+                        </div>
                         <div className="grid grid-cols-2 border-b border-slate-300"><div className="bg-slate-100 p-2 font-bold text-slate-700 text-xs flex items-center">ID VIAGEM</div><div className="p-2 font-mono text-xs flex items-center justify-center text-center break-all">{item.id}</div></div>
                         <div className="grid grid-cols-2 border-b border-slate-300"><div className="bg-slate-200 p-2 font-bold text-slate-700 text-xs flex items-center">TIPO DE VEICULO</div><div className="p-2 text-xs flex items-center justify-center text-center uppercase">{item.vehicleType}</div></div>
                         <div className="grid grid-cols-2 border-b border-slate-300"><div className="bg-slate-100 p-2 font-bold text-slate-700 text-xs flex items-center">VOLUMETRIA REAL</div><div className="p-2 text-xs flex items-center justify-center text-center font-mono">{item.volume}</div></div>
