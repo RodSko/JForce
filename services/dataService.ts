@@ -79,6 +79,7 @@ export const dataService = {
       date: record.date,
       volume: record.volume,
       trucks: record.trucks,
+      diaristaCount: record.diarista_count || 0,
       assignments: Array.isArray(record.assignments) ? record.assignments : [],
       trips: Array.isArray(record.trips) ? record.trips : []
     }));
@@ -92,6 +93,7 @@ export const dataService = {
         date: record.date,
         volume: record.volume,
         trucks: record.trucks,
+        diarista_count: record.diaristaCount,
         assignments: record.assignments || [],
         trips: record.trips || []
       });

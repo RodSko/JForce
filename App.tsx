@@ -32,9 +32,13 @@ CREATE TABLE IF NOT EXISTS public.daily_records (
     date TEXT NOT NULL,
     volume NUMERIC,
     trucks NUMERIC,
+    diarista_count NUMERIC DEFAULT 0,
     assignments JSONB DEFAULT '[]'::jsonb,
     trips JSONB DEFAULT '[]'::jsonb
 );
+
+-- Ensure diarista_count column exists if table was already created
+ALTER TABLE public.daily_records ADD COLUMN IF NOT EXISTS diarista_count NUMERIC DEFAULT 0;
 
 CREATE TABLE IF NOT EXISTS public.supplies (
     id TEXT PRIMARY KEY,
