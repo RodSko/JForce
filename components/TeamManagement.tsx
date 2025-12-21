@@ -10,8 +10,10 @@ interface Props {
 
 const TeamManagement: React.FC<Props> = ({ employees, onAddEmployee, onUpdateEmployee }) => {
   const [newName, setNewName] = useState('');
+  const [newGender, setNewGender] = useState<'M' | 'F'>('M');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editNameValue, setEditNameValue] = useState('');
+  const [editGenderValue, setEditGenderValue] = useState<'M' | 'F'>('M');
   const [loading, setLoading] = useState(false);
 
   const handleAdd = async () => {
@@ -21,7 +23,8 @@ const TeamManagement: React.FC<Props> = ({ employees, onAddEmployee, onUpdateEmp
       const newEmp: Employee = {
         id: `emp-${Date.now()}`,
         name: newName,
-        active: true
+        active: true,
+        gender: newGender
       };
       await onAddEmployee(newEmp);
       setNewName('');
@@ -43,29 +46,28 @@ const TeamManagement: React.FC<Props> = ({ employees, onAddEmployee, onUpdateEmp
   const startEditing = (emp: Employee) => {
     setEditingId(emp.id);
     setEditNameValue(emp.name);
+    setEditGenderValue(emp.gender);
   };
 
   const saveEdit = async (originalEmp: Employee) => {
     if (editingId && editNameValue.trim()) {
       try {
-        await onUpdateEmployee({ ...originalEmp, name: editNameValue });
+        await onUpdateEmployee({ ...originalEmp, name: editNameValue, gender: editGenderValue });
         setEditingId(null);
-        setEditNameValue('');
       } catch (error) {
-        alert('Erro ao salvar nome.');
+        alert('Erro ao salvar.');
       }
     }
   };
 
   const cancelEdit = () => {
     setEditingId(null);
-    setEditNameValue('');
   };
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-end gap-4">
-        <div className="flex-1">
+      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-end gap-4">
+        <div className="flex-1 w-full">
           <label className="block text-sm font-medium text-slate-700 mb-1">Novo Colaborador</label>
           <input
             type="text"
@@ -77,10 +79,22 @@ const TeamManagement: React.FC<Props> = ({ employees, onAddEmployee, onUpdateEmp
             disabled={loading}
           />
         </div>
+        <div className="w-full md:w-32">
+          <label className="block text-sm font-medium text-slate-700 mb-1">Sexo</label>
+          <select
+            value={newGender}
+            onChange={(e) => setNewGender(e.target.value as 'M' | 'F')}
+            className="w-full px-4 py-2 bg-white text-slate-900 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+            disabled={loading}
+          >
+            <option value="M">Masc.</option>
+            <option value="F">Fem.</option>
+          </select>
+        </div>
         <button 
           onClick={handleAdd}
           disabled={loading}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors disabled:opacity-50"
+          className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors disabled:opacity-50 whitespace-nowrap"
         >
           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />} 
           Adicionar
@@ -92,6 +106,7 @@ const TeamManagement: React.FC<Props> = ({ employees, onAddEmployee, onUpdateEmp
           <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-semibold">
             <tr>
               <th className="px-6 py-4 text-left">Nome</th>
+              <th className="px-6 py-4 text-center">Sexo</th>
               <th className="px-6 py-4 text-left">Status</th>
               <th className="px-6 py-4 text-right">Ações</th>
             </tr>
@@ -114,6 +129,22 @@ const TeamManagement: React.FC<Props> = ({ employees, onAddEmployee, onUpdateEmp
                     />
                   ) : (
                     emp.name
+                  )}
+                </td>
+                <td className="px-6 py-4 text-center">
+                  {editingId === emp.id ? (
+                    <select
+                      value={editGenderValue}
+                      onChange={(e) => setEditGenderValue(e.target.value as 'M' | 'F')}
+                      className="px-2 py-1 border rounded"
+                    >
+                      <option value="M">M</option>
+                      <option value="F">F</option>
+                    </select>
+                  ) : (
+                    <span className={`px-2 py-1 rounded-md text-xs font-bold ${emp.gender === 'M' ? 'bg-blue-50 text-blue-600' : 'bg-pink-50 text-pink-600'}`}>
+                      {emp.gender === 'M' ? 'Masc' : 'Fem'}
+                    </span>
                   )}
                 </td>
                 <td className="px-6 py-4">
@@ -146,7 +177,7 @@ const TeamManagement: React.FC<Props> = ({ employees, onAddEmployee, onUpdateEmp
                       <button
                         onClick={() => startEditing(emp)}
                         className="text-slate-400 hover:text-indigo-600 p-1 rounded hover:bg-indigo-50"
-                        title="Editar nome"
+                        title="Editar"
                       >
                         <Pencil className="w-4 h-4" />
                       </button>
@@ -172,11 +203,6 @@ const TeamManagement: React.FC<Props> = ({ employees, onAddEmployee, onUpdateEmp
             ))}
           </tbody>
         </table>
-        {employees.length === 0 && (
-          <div className="p-8 text-center text-slate-500">
-            Nenhum colaborador cadastrado ou carregando...
-          </div>
-        )}
       </div>
     </div>
   );

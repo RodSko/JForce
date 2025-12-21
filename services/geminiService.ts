@@ -5,7 +5,8 @@ import { TASK_DEFINITIONS } from '../constants';
 export const generateScheduleSuggestion = async (
   employees: Employee[],
   history: DailyRecord[],
-  targetDate: string
+  targetDate: string,
+  manualAssignments: { taskId: string, slotIndex: number, employeeId: string }[] = []
 ) => {
   if (!process.env.API_KEY) {
     throw new Error("API Key not found");
@@ -14,40 +15,48 @@ export const generateScheduleSuggestion = async (
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   // Prepare context for the model
-  const activeEmployees = employees.filter(e => e.active).map(e => e.name);
+  const activeEmployees = employees.filter(e => e.active).map(e => ({
+    id: e.id,
+    name: e.name,
+    gender: e.gender
+  }));
   
-  // Summarize last 5 days to help rotation
   const recentHistory = history
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    .slice(0, 5)
+    .slice(0, 10)
     .map(record => ({
       date: record.date,
       assignments: record.assignments.map(a => {
         const taskName = TASK_DEFINITIONS.find(t => t.id === a.taskId)?.name || a.taskId;
         const empName = employees.find(e => e.id === a.employeeId)?.name || "Unknown";
-        return `${empName} -> ${taskName}`;
+        return { employeeName: empName, task: taskName, taskId: a.taskId };
       })
     }));
 
   const prompt = `
     You are a logistics manager AI.
-    We have ${activeEmployees.length} active employees: ${activeEmployees.join(', ')}.
+    Active team (${activeEmployees.length} people): ${JSON.stringify(activeEmployees)}.
     
-    We need to assign them to the following tasks for date ${targetDate}:
-    ${JSON.stringify(TASK_DEFINITIONS.map(t => ({ id: t.id, name: t.name, capacity: t.capacity })))}
+    CRITICAL RULES:
+    1. Gender Rule: Females (gender: 'F') CANNOT be assigned to 'Virar Pacote' (task-turn).
+    2. Rotation Rule: Employees should not repeat the same task they did recently until they've rotated through others.
+    3. Mandatory Slots: Fill slots for these tasks first: ${JSON.stringify(TASK_DEFINITIONS.filter(t => t.id !== 'task-solto').map(t => ({ id: t.id, name: t.name, capacity: t.capacity })))}.
+    4. Surplus Logic: If there are more employees than mandatory task slots, assign the remainder to 'Solto / Reserva' (task-solto).
+    5. Manual Overrides: These positions are already filled manually (do not change them): ${JSON.stringify(manualAssignments.map(m => {
+        const emp = employees.find(e => e.id === m.employeeId);
+        return { taskId: m.taskId, slotIndex: m.slotIndex, employeeName: emp?.name };
+    }))}.
     
-    Recent History (last 5 days) for rotation context:
+    Recent History for rotation:
     ${JSON.stringify(recentHistory)}
     
-    GOAL: Create a fair daily roster. Rotate employees so they don't do the same hard task (like Unloading) every day.
-    Ensure every task slot is filled. Total slots needed: 16.
-    
-    Return a JSON object with a 'rationale' string explaining the rotation logic, and an 'assignments' array.
+    GOAL: Create a fair daily roster for ${targetDate}. Ensure every active employee has a position.
+    Return a JSON object with 'rationale' and 'assignments' array.
   `;
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: prompt,
       config: {
         responseMimeType: "application/json",

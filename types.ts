@@ -2,39 +2,42 @@ export interface Employee {
   id: string;
   name: string;
   active: boolean;
+  gender: 'M' | 'F';
 }
 
 export enum TaskCategory {
   UNLOAD = 'Descarregar',
   TURN = 'Virar Pacote',
   FISHING = 'Pescar Rota',
-  BAGGING = 'Ensacar'
+  BAGGING = 'Ensacar',
+  SOLTO = 'Solto'
 }
 
 export interface TaskDefinition {
   id: string;
   name: string;
-  description: string; // The specific routes or details
+  description: string;
   category: TaskCategory;
-  capacity: number; // How many people needed
+  capacity: number;
 }
 
 export interface Assignment {
   taskId: string;
   employeeId: string;
-  slotIndex: number; // For tasks with multiple people, which slot (0, 1, etc)
+  slotIndex: number;
+  isManual?: boolean;
 }
 
 export interface TripInfo {
-  id: string; // 15 chars alphanumeric
-  volume?: number; // Volumetria específica da viagem
-  unsealed: boolean; // deslacrada
-  unsealTimestamp?: string; // Data e hora do deslacre (Formatado para exibição)
-  unsealTimeISO?: string; // Data ISO para cálculos de timer
+  id: string;
+  volume?: number;
+  unsealed: boolean;
+  unsealTimestamp?: string;
+  unsealTimeISO?: string;
 }
 
 export interface DailyRecord {
-  id: string; // YYYY-MM-DD
+  id: string;
   date: string;
   volume: number;
   trucks: number;
@@ -51,7 +54,7 @@ export interface SupplyItem {
   id: string;
   name: string;
   quantity: number;
-  unit: string; // ex: 'un', 'cx', 'rolo'
+  unit: string;
   minStock: number;
 }
 
@@ -61,27 +64,27 @@ export interface SupplyTransaction {
   supplyName: string;
   type: 'IN' | 'OUT';
   quantity: number;
-  date: string; // ISO String
-  user: string; // Quem retirou ou quem adicionou
+  date: string;
+  user: string;
 }
 
 export interface EpiItem {
   id: string;
   name: string;
-  caNumber: string; // Certificado de Aprovação
+  caNumber: string;
   quantity: number;
   minStock: number;
-  validityDays?: number; // Validade média em dias para troca
+  validityDays?: number;
 }
 
 export interface EpiTransaction {
   id: string;
   epiId: string;
   epiName: string;
-  type: 'IN' | 'OUT'; // IN = Compra/Estoque, OUT = Entrega funcionário
+  type: 'IN' | 'OUT';
   quantity: number;
   date: string;
-  employeeId?: string; // ID do funcionário que recebeu
-  employeeName: string; // Nome do funcionário ou 'Estoque Inicial'
+  employeeId?: string;
+  employeeName: string;
   notes?: string;
 }

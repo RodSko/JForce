@@ -4,14 +4,14 @@ export const TASK_DEFINITIONS: TaskDefinition[] = [
   {
     id: 'task-unload',
     name: 'Descarregar Carreta',
-    description: 'Recebimento e descarga',
+    description: 'Recebimento e descarga pesada',
     category: TaskCategory.UNLOAD,
     capacity: 2
   },
   {
     id: 'task-turn',
     name: 'Virar Pacote',
-    description: 'Alinhamento na esteira',
+    description: 'Alinhamento na esteira (Somente Homens)',
     category: TaskCategory.TURN,
     capacity: 2
   },
@@ -76,12 +76,20 @@ export const TASK_DEFINITIONS: TaskDefinition[] = [
     name: 'Ensacar',
     description: 'Finalização e embalagem',
     category: TaskCategory.BAGGING,
-    capacity: 4 // Assuming 16 employees total - 12 assigned to specific tasks = 4 remaining
+    capacity: 2
+  },
+  {
+    id: 'task-solto',
+    name: 'Solto / Reserva',
+    description: 'Auxílio geral onde for necessário',
+    category: TaskCategory.SOLTO,
+    capacity: 16 // Catch-all capacity
   }
 ];
 
 export const INITIAL_EMPLOYEES: Employee[] = Array.from({ length: 16 }, (_, i) => ({
   id: `emp-${i + 1}`,
   name: `Colaborador ${i + 1}`,
-  active: true
+  active: true,
+  gender: i < 8 ? 'M' : 'F' // 8 Men, 8 Women default
 }));
