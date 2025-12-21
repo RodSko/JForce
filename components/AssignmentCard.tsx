@@ -20,8 +20,9 @@ const AssignmentCard: React.FC<Props> = ({ task, assignments, employees, onAssig
     }
   };
 
-  const currentTaskAssignments = assignments.filter(a => a.taskId === task.id);
-  const assignedEmployeeIds = new Set(assignments.map(a => a.employeeId));
+  // Correção: Apenas considerar atribuições com employeeId válido (não vazio)
+  const currentTaskAssignments = assignments.filter(a => a.taskId === task.id && a.employeeId);
+  const assignedEmployeeIds = new Set(assignments.filter(a => a.employeeId).map(a => a.employeeId));
   const isSolto = task.category === TaskCategory.SOLTO;
   
   const maxOccupiedSlot = currentTaskAssignments.length > 0 
@@ -53,7 +54,7 @@ const AssignmentCard: React.FC<Props> = ({ task, assignments, employees, onAssig
 
       <div className="space-y-1.5">
         {Array.from({ length: displayCapacity }).map((_, idx) => {
-          const assignment = currentTaskAssignments.find(a => a.slotIndex === idx);
+          const assignment = assignments.find(a => a.taskId === task.id && a.slotIndex === idx && a.employeeId);
           const isDiarista = assignment?.employeeId === 'diarista-id';
           const employee = assignment ? employees.find(e => e.id === assignment.employeeId) : null;
           

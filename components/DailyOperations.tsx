@@ -144,7 +144,8 @@ const DailyOperations: React.FC<Props> = ({ employees, history, onSaveRecord }) 
   };
 
   const activeEmployeesCount = employees.filter(e => e.active).length;
-  const assignedCount = assignments.filter(a => a.employeeId !== 'diarista-id').length;
+  // Correção: Apenas contar se o ID for válido e não for diarista
+  const assignedCount = assignments.filter(a => a.employeeId && a.employeeId !== 'diarista-id').length;
 
   return (
     <div className="space-y-6">
@@ -235,14 +236,6 @@ const DailyOperations: React.FC<Props> = ({ employees, history, onSaveRecord }) 
                   <div className="h-3 w-full bg-slate-200 rounded-full overflow-hidden border border-slate-300">
                     <div className="h-full bg-indigo-600 transition-all shadow-[0_0_8px_rgba(79,70,229,0.3)]" style={{ width: `${(assignedCount/activeEmployeesCount)*100}%` }} />
                   </div>
-                </div>
-                <div className="pt-4 border-t border-slate-200 space-y-2">
-                  <p className="text-[10px] font-black text-slate-400 uppercase">REGRAS ATIVAS:</p>
-                  <p className="text-[11px] font-black text-slate-800 flex items-center gap-2 uppercase tracking-tight">• DESC/TURN: EXCLUSIVO MASCULINO</p>
-                  <p className="text-[11px] font-black text-slate-800 flex items-center gap-2 uppercase tracking-tight">• EDINA: FIXA NO RESERVA</p>
-                  <p className="text-[11px] font-black text-indigo-700 flex items-center gap-2 uppercase tracking-tight">• ALEX: PRIORIDADE MÁXIMA RESERVA</p>
-                  <p className="text-[11px] font-black text-indigo-700 flex items-center gap-2 uppercase tracking-tight">• VITÓRIA/SOFIA: PRIORIDADE ALTA RESERVA</p>
-                  <p className="text-[11px] font-black text-slate-800 flex items-center gap-2 uppercase tracking-tight">• VOL &gt; 12.000: ELITE NA VIRADA</p>
                 </div>
               </div>
             </div>
