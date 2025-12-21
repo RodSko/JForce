@@ -41,7 +41,6 @@ const DailyOperations: React.FC<Props> = ({ employees, history, onSaveRecord }) 
     }
   }, [date, history]);
 
-  // Cálculo automático da volumetria total baseado nas viagens
   useEffect(() => {
     if (trips.length > 0) {
       const total = trips.reduce((acc, trip) => acc + (trip.volume || 0), 0);
@@ -149,7 +148,6 @@ const DailyOperations: React.FC<Props> = ({ employees, history, onSaveRecord }) 
 
   return (
     <div className="space-y-6">
-      {/* Menu Superior - Oculto no PNG */}
       <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap gap-6 items-end justify-between" data-html2canvas-ignore>
         <div className="flex flex-wrap gap-5 items-end">
           <div className="w-44">
@@ -195,9 +193,7 @@ const DailyOperations: React.FC<Props> = ({ employees, history, onSaveRecord }) 
         </div>
       </div>
 
-      {/* ÁREA DE CAPTURA (PNG) */}
       <div ref={reportRef} data-report-container className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 max-w-[1200px] mx-auto">
-        {/* Header do PNG */}
         <div className="flex justify-between items-start mb-8 border-b-4 border-slate-900 pb-8">
           <div>
             <h1 className="text-4xl font-black text-slate-900 tracking-tighter leading-none">ESCALA OPERACIONAL</h1>
@@ -222,7 +218,6 @@ const DailyOperations: React.FC<Props> = ({ employees, history, onSaveRecord }) 
         </div>
 
         <div className="grid grid-cols-12 gap-8">
-          {/* Coluna de Apoio e Viagens */}
           <div className="col-span-4 space-y-6">
             <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200">
               <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
@@ -247,12 +242,11 @@ const DailyOperations: React.FC<Props> = ({ employees, history, onSaveRecord }) 
                   <p className="text-[11px] font-black text-slate-800 flex items-center gap-2 uppercase tracking-tight">• EDINA: FIXA NO RESERVA</p>
                   <p className="text-[11px] font-black text-indigo-700 flex items-center gap-2 uppercase tracking-tight">• ALEX: PRIORIDADE MÁXIMA RESERVA</p>
                   <p className="text-[11px] font-black text-indigo-700 flex items-center gap-2 uppercase tracking-tight">• VITÓRIA/SOFIA: PRIORIDADE ALTA RESERVA</p>
-                  <p className="text-[11px] font-black text-slate-800 flex items-center gap-2 uppercase tracking-tight">• VOL > 12.000: ELITE NA VIRADA</p>
+                  <p className="text-[11px] font-black text-slate-800 flex items-center gap-2 uppercase tracking-tight">• VOL &gt; 12.000: ELITE NA VIRADA</p>
                 </div>
               </div>
             </div>
 
-            {/* CARD DE VIAGENS */}
             <div className="bg-white rounded-2xl border-2 border-slate-200 overflow-hidden shadow-sm">
               <div className="bg-slate-900 px-4 py-3 flex items-center justify-between">
                 <h4 className="text-[10px] font-black text-white uppercase tracking-widest flex items-center gap-2">
@@ -269,7 +263,9 @@ const DailyOperations: React.FC<Props> = ({ employees, history, onSaveRecord }) 
                       <div className="flex-1">
                         <label className="block text-[8px] font-black text-slate-400 uppercase mb-0.5">ID VIAGEM</label>
                         {isExporting ? (
-                           <div className="px-2 py-1.5 bg-slate-50 rounded border border-slate-200 text-xs font-black text-slate-900 uppercase">{trip.id || '---'}</div>
+                          <div className="px-2 py-1.5 bg-slate-50 rounded border border-slate-200 text-xs font-black text-slate-900 uppercase">
+                            {trip.id || '---'}
+                          </div>
                         ) : (
                           <input type="text" value={trip.id} onChange={(e) => handleTripChange(idx, e.target.value)} placeholder="ID" className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded text-xs font-black text-slate-900 uppercase focus:ring-1 focus:ring-indigo-500 outline-none" />
                         )}
@@ -277,7 +273,9 @@ const DailyOperations: React.FC<Props> = ({ employees, history, onSaveRecord }) 
                       <div className="w-20">
                         <label className="block text-[8px] font-black text-slate-400 uppercase mb-0.5">VOLUME</label>
                         {isExporting ? (
-                           <div className="px-2 py-1.5 bg-indigo-50 rounded border border-indigo-100 text-xs font-black text-indigo-700 text-center">{trip.volume || 0}</div>
+                          <div className="px-2 py-1.5 bg-indigo-50 rounded border border-indigo-100 text-xs font-black text-indigo-700 text-center">
+                            {trip.volume || 0}
+                          </div>
                         ) : (
                           <input type="number" value={trip.volume || ''} onChange={(e) => handleTripVolumeChange(idx, e.target.value)} placeholder="0" className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded text-xs font-black text-indigo-600 text-center focus:ring-1 focus:ring-indigo-500 outline-none" />
                         )}
@@ -316,7 +314,6 @@ const DailyOperations: React.FC<Props> = ({ employees, history, onSaveRecord }) 
             </div>
           </div>
 
-          {/* Grid de Tarefas */}
           <div className="col-span-8">
             <div className="grid grid-cols-2 gap-5">
               {TASK_DEFINITIONS.map(task => (
@@ -332,7 +329,6 @@ const DailyOperations: React.FC<Props> = ({ employees, history, onSaveRecord }) 
           </div>
         </div>
 
-        {/* Rodapé da Exportação */}
         <div className="mt-12 pt-6 border-t border-slate-200 flex justify-between items-center opacity-50">
            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">LogiTeam Manager &copy; 2025</span>
            <div className="flex items-center gap-3">
