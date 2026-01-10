@@ -465,7 +465,7 @@ const GenerateReport: React.FC<Props> = () => {
                               value={item.pdd || ''}
                               onChange={(e) => handlePddChange(idx, e.target.value)}
                               placeholder="DIGITE..."
-                              className="w-full h-10 bg-white border border-slate-300 rounded pl-3 pr-1 text-left font-mono text-slate-900 font-bold uppercase focus:ring-1 focus:ring-indigo-500 outline-none text-[13px] leading-[38px] tracking-tighter"
+                              className="w-full h-10 bg-white border border-slate-300 rounded pl-2 pr-1 text-left font-mono text-slate-900 font-bold uppercase focus:ring-1 focus:ring-indigo-500 outline-none text-[13px] leading-[38px] tracking-tighter"
                               autoComplete="off"
                             />
                           </div>

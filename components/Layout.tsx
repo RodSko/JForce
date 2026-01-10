@@ -1,7 +1,7 @@
 import React from 'react';
-import { LayoutDashboard, Users, BarChart3, Boxes, FileText, Truck, ClipboardList, Map, Box, QrCode, HardHat } from 'lucide-react';
+import { LayoutDashboard, Users, BarChart3, Boxes, FileText, Truck, ClipboardList, Map, Box, QrCode, HardHat, Hash } from 'lucide-react';
 
-type View = 'daily' | 'team' | 'reports' | 'generate' | 'shipped' | 'management' | 'secondary' | 'supplies' | 'epis' | 'qrcode';
+type View = 'daily' | 'team' | 'reports' | 'generate' | 'shipped' | 'management' | 'secondary' | 'supplies' | 'epis' | 'qrcode' | 'batches';
 
 interface Props {
   currentView: View;
@@ -17,6 +17,7 @@ const Layout: React.FC<Props> = ({ currentView, onChangeView, children }) => {
     { id: 'management', label: 'Gerar Report Gestão', icon: ClipboardList },
     { id: 'shipped', label: 'Expedido Mas Não Chegou', icon: Truck },
     { id: 'secondary', label: 'Viagens Secundárias', icon: Map },
+    { id: 'batches', label: 'Números de Lotes', icon: Hash },
     { id: 'supplies', label: 'Controle de Insumos', icon: Box },
     { id: 'epis', label: 'Controle de EPIs', icon: HardHat },
     { id: 'qrcode', label: 'Gerar Qr Code', icon: QrCode },

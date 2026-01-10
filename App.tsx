@@ -11,24 +11,25 @@ import SecondaryTrips from './components/SecondaryTrips';
 import SuppliesControl from './components/SuppliesControl';
 import EpiControl from './components/EpiControl';
 import QrCodeGenerator from './components/QrCodeGenerator';
+import BatchNumbers from './components/BatchNumbers';
 import { dataService } from './services/dataService';
 import { Loader2, AlertTriangle, Database, Copy, Check } from 'lucide-react';
 
-// SQL Script for setup to be displayed in case of missing tables
-const SETUP_SQL = `-- Run this in your Supabase SQL Editor
+// SQL Script atualizado para incluir todas as colunas necessárias
+const SETUP_SQL = `-- EXECUTE ESTE SCRIPT NO SQL EDITOR DO SUPABASE PARA CORRIGIR ERROS DE COLUNA
 
+-- 1. Tabela de Funcionários
 CREATE TABLE IF NOT EXISTS public.employees (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     active BOOLEAN DEFAULT TRUE,
     gender TEXT DEFAULT 'M'
 );
-
--- Ensure gender column exists if table was already created
 ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS gender TEXT DEFAULT 'M';
 
+-- 2. Tabela de Registros Diários
 CREATE TABLE IF NOT EXISTS public.daily_records (
-    id TEXT PRIMARY KEY, -- YYYY-MM-DD
+    id TEXT PRIMARY KEY, 
     date TEXT NOT NULL,
     volume NUMERIC,
     trucks NUMERIC,
@@ -36,10 +37,11 @@ CREATE TABLE IF NOT EXISTS public.daily_records (
     assignments JSONB DEFAULT '[]'::jsonb,
     trips JSONB DEFAULT '[]'::jsonb
 );
-
--- Ensure diarista_count column exists if table was already created
+-- Garante que as colunas novas existam caso a tabela tenha sido criada antigamente
 ALTER TABLE public.daily_records ADD COLUMN IF NOT EXISTS diarista_count NUMERIC DEFAULT 0;
+ALTER TABLE public.daily_records ADD COLUMN IF NOT EXISTS trips JSONB DEFAULT '[]'::jsonb;
 
+-- 3. Tabelas de Insumos
 CREATE TABLE IF NOT EXISTS public.supplies (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -58,7 +60,7 @@ CREATE TABLE IF NOT EXISTS public.supply_transactions (
     user_name TEXT
 );
 
--- EPIs Tables
+-- 4. Tabelas de EPIs
 CREATE TABLE IF NOT EXISTS public.epis (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -80,35 +82,33 @@ CREATE TABLE IF NOT EXISTS public.epi_transactions (
     notes TEXT
 );
 
--- Enable Row Level Security (RLS)
+-- 5. Tabela de Números de Lotes
+CREATE TABLE IF NOT EXISTS public.batch_numbers (
+    id TEXT PRIMARY KEY,
+    number TEXT NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Habilitar RLS e criar políticas de acesso
 ALTER TABLE public.employees ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.daily_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.supplies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.supply_transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.epis ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.epi_transactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.batch_numbers ENABLE ROW LEVEL SECURITY;
 
--- Create policies to allow public access (Adjust for production!)
-DROP POLICY IF EXISTS "Public Access Employees" ON public.employees;
-CREATE POLICY "Public Access Employees" ON public.employees FOR ALL USING (true);
-
-DROP POLICY IF EXISTS "Public Access Records" ON public.daily_records;
-CREATE POLICY "Public Access Records" ON public.daily_records FOR ALL USING (true);
-
-DROP POLICY IF EXISTS "Public Access Supplies" ON public.supplies;
-CREATE POLICY "Public Access Supplies" ON public.supplies FOR ALL USING (true);
-
-DROP POLICY IF EXISTS "Public Access Transactions" ON public.supply_transactions;
-CREATE POLICY "Public Access Transactions" ON public.supply_transactions FOR ALL USING (true);
-
-DROP POLICY IF EXISTS "Public Access Epis" ON public.epis;
-CREATE POLICY "Public Access Epis" ON public.epis FOR ALL USING (true);
-
-DROP POLICY IF EXISTS "Public Access EpiTrans" ON public.epi_transactions;
-CREATE POLICY "Public Access EpiTrans" ON public.epi_transactions FOR ALL USING (true);`;
+CREATE POLICY "Public Access" ON public.employees FOR ALL USING (true);
+CREATE POLICY "Public Access" ON public.daily_records FOR ALL USING (true);
+CREATE POLICY "Public Access" ON public.supplies FOR ALL USING (true);
+CREATE POLICY "Public Access" ON public.supply_transactions FOR ALL USING (true);
+CREATE POLICY "Public Access" ON public.epis FOR ALL USING (true);
+CREATE POLICY "Public Access" ON public.epi_transactions FOR ALL USING (true);
+CREATE POLICY "Public Access" ON public.batch_numbers FOR ALL USING (true);`;
 
 function App() {
-  const [view, setView] = useState<'daily' | 'team' | 'reports' | 'generate' | 'shipped' | 'management' | 'secondary' | 'supplies' | 'epis' | 'qrcode'>('daily');
+  const [view, setView] = useState<'daily' | 'team' | 'reports' | 'generate' | 'shipped' | 'management' | 'secondary' | 'supplies' | 'epis' | 'qrcode' | 'batches'>('daily');
   
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [history, setHistory] = useState<DailyRecord[]>([]);
@@ -116,28 +116,25 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // Initial Load from Supabase
   useEffect(() => {
     const fetchData = async () => {
       try {
         setError(null);
-        // We try to fetch all data to check connectivity and table existence
         const [empData, histData] = await Promise.all([
           dataService.getEmployees(),
           dataService.getHistory(),
-          dataService.getSupplies(), // Check Supplies table
-          dataService.getEpis()      // Check EPIs table
+          dataService.getSupplies(),
+          dataService.getEpis()
         ]);
         setEmployees(empData);
         setHistory(histData);
       } catch (err: any) {
-        console.error("Failed to load data:", JSON.stringify(err));
-        // Extract meaningful message from Supabase error
+        console.error("Failed to load data:", err);
         const msg = err.message || JSON.stringify(err);
         const code = err.code || '';
         
-        // Check for specific "table not found" error
-        if (code === 'PGRST205' || msg.includes('does not exist')) {
+        // Se a tabela ou coluna não existir, mostramos a tela de configuração
+        if (code === 'PGRST204' || code === 'PGRST205' || code === '42703' || msg.includes('does not exist') || msg.includes('column')) {
           setError('MISSING_TABLES');
         } else {
           setError(msg);
@@ -152,7 +149,6 @@ function App() {
   const handleSaveRecord = async (record: DailyRecord) => {
     try {
       await dataService.saveDailyRecord(record);
-      
       setHistory(prev => {
         const idx = prev.findIndex(p => p.date === record.date);
         if (idx >= 0) {
@@ -160,12 +156,17 @@ function App() {
           newHistory[idx] = record;
           return newHistory;
         }
-        return [record, ...prev]; // Add new records to top for easier history view
+        return [record, ...prev];
       });
       return true;
-    } catch (error: any) {
-      console.error("Error saving record:", error);
-      alert(`Erro ao salvar: ${error.message || "Erro desconhecido"}`);
+    } catch (err: any) {
+      console.error("Error saving record:", err);
+      // Caso ocorra erro de coluna inexistente ao salvar
+      if (err.message?.includes('column') || err.code === '42703') {
+        setError('MISSING_TABLES');
+      } else {
+        alert(`Erro ao salvar: ${err.message || "Erro desconhecido"}`);
+      }
       return false;
     }
   };
@@ -200,7 +201,6 @@ function App() {
     );
   }
 
-  // Error State Display
   if (error) {
     const isMissingTables = error === 'MISSING_TABLES';
 
@@ -212,12 +212,12 @@ function App() {
           </div>
           
           <h2 className="text-2xl font-bold text-slate-800 mb-2 text-center">
-            {isMissingTables ? 'Configuração Necessária' : 'Erro de Conexão'}
+            {isMissingTables ? 'Estrutura do Banco de Dados Incompleta' : 'Erro de Conexão'}
           </h2>
           
-          <p className="text-slate-600 mb-6 text-center">
+          <p className="text-slate-600 mb-6 text-center text-sm">
             {isMissingTables 
-              ? 'O banco de dados do Supabase ainda não possui as tabelas necessárias (Insumos e EPIs). Por favor, execute o script abaixo.' 
+              ? 'Parece que algumas colunas (como diarista_count ou trips) ou tabelas ainda não foram criadas no seu Supabase. Siga os passos abaixo para corrigir.' 
               : 'Não foi possível carregar os dados do banco de dados.'}
           </p>
 
@@ -229,15 +229,15 @@ function App() {
                  </h3>
                  <ol className="list-decimal list-inside text-sm text-blue-800 space-y-1 ml-1">
                    <li>Copie o código SQL abaixo.</li>
-                   <li>Acesse seu painel do Supabase.</li>
-                   <li>Vá até o <strong>SQL Editor</strong>.</li>
+                   <li>Acesse o seu dashboard no <strong>Supabase</strong>.</li>
+                   <li>Vá até o <strong>SQL Editor</strong> e crie uma nova query.</li>
                    <li>Cole o código e clique em <strong>RUN</strong>.</li>
-                   <li>Recarregue esta página.</li>
+                   <li>Recarregue este aplicativo.</li>
                  </ol>
                </div>
 
                <div className="relative">
-                 <pre className="bg-slate-900 text-slate-100 p-4 rounded-lg text-xs font-mono overflow-auto max-h-64 whitespace-pre-wrap">
+                 <pre className="bg-slate-900 text-slate-100 p-4 rounded-lg text-[10px] font-mono overflow-auto max-h-64 whitespace-pre-wrap">
                    {SETUP_SQL}
                  </pre>
                  <button 
@@ -302,6 +302,9 @@ function App() {
       )}
       {view === 'secondary' && (
         <SecondaryTrips />
+      )}
+      {view === 'batches' && (
+        <BatchNumbers />
       )}
       {view === 'supplies' && (
         <SuppliesControl />

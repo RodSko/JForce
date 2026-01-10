@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { Employee, DailyRecord, SupplyItem, SupplyTransaction, EpiItem, EpiTransaction } from '../types';
+import { Employee, DailyRecord, SupplyItem, SupplyTransaction, EpiItem, EpiTransaction, BatchNumber } from '../types';
 
 export const dataService = {
   // --- Employees ---
@@ -18,7 +18,6 @@ export const dataService = {
   },
 
   async createEmployee(employee: Employee): Promise<void> {
-    // Garantimos que os nomes das propriedades batem exatamente com as colunas do DB
     const { error } = await supabase
       .from('employees')
       .insert([
@@ -259,6 +258,40 @@ export const dataService = {
         employee_name: transaction.employeeName,
         notes: transaction.notes
       });
+    
+    if (error) throw error;
+  },
+
+  // --- Batch Numbers ---
+
+  async getBatchNumbers(): Promise<BatchNumber[]> {
+    const { data, error } = await supabase
+      .from('batch_numbers')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+    return data || [];
+  },
+
+  async saveBatchNumber(batch: BatchNumber): Promise<void> {
+    const { error } = await supabase
+      .from('batch_numbers')
+      .upsert({
+        id: batch.id,
+        number: batch.number,
+        description: batch.description,
+        created_at: batch.created_at
+      });
+    
+    if (error) throw error;
+  },
+
+  async deleteBatchNumber(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('batch_numbers')
+      .delete()
+      .eq('id', id);
     
     if (error) throw error;
   }

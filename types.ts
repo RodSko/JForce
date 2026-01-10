@@ -89,3 +89,10 @@ export interface EpiTransaction {
   employeeName: string;
   notes?: string;
 }
+
+export interface BatchNumber {
+  id: string;
+  number: string;
+  description: string;
+  created_at: string;
+}
