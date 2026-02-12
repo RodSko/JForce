@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { DailyRecord, Employee, TripInfo } from './types';
 import Layout from './components/Layout';
@@ -12,6 +13,7 @@ import SuppliesControl from './components/SuppliesControl';
 import EpiControl from './components/EpiControl';
 import QrCodeGenerator from './components/QrCodeGenerator';
 import BatchNumbers from './components/BatchNumbers';
+import ExpeditionForecast from './components/ExpeditionForecast';
 import { dataService } from './services/dataService';
 import { Loader2, AlertTriangle, Database, Copy, Check } from 'lucide-react';
 
@@ -108,7 +110,7 @@ CREATE POLICY "Public Access" ON public.epi_transactions FOR ALL USING (true);
 CREATE POLICY "Public Access" ON public.batch_numbers FOR ALL USING (true);`;
 
 function App() {
-  const [view, setView] = useState<'daily' | 'team' | 'reports' | 'generate' | 'shipped' | 'management' | 'secondary' | 'supplies' | 'epis' | 'qrcode' | 'batches'>('daily');
+  const [view, setView] = useState<'daily' | 'team' | 'reports' | 'generate' | 'shipped' | 'management' | 'secondary' | 'supplies' | 'epis' | 'qrcode' | 'batches' | 'forecast'>('daily');
   
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [history, setHistory] = useState<DailyRecord[]>([]);
@@ -290,6 +292,9 @@ function App() {
           history={history} 
           employees={employees} 
         />
+      )}
+      {view === 'forecast' && (
+        <ExpeditionForecast />
       )}
       {view === 'generate' && (
         <GenerateReport />
