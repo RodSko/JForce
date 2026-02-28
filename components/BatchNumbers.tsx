@@ -5,10 +5,10 @@ import { BatchNumber } from '../types';
 import { dataService } from '../services/dataService';
 import * as XLSX from 'xlsx';
 
-// Lista exata das 18 bases homologadas da operação SE AJU
+// Lista exata das 19 bases homologadas da operação SE AJU
 const ALLOWED_BASES = [
   'NSS-SE', 'NSG-SE', 'IBN-SE', 'F LAG-SE', 'PRO-SE', 'F EST-SE', 
-  'CDM-SE', 'F CDM - SE', 'BUG-SE', 'ARP-AL', 'PMI-AL', 'STI-AL', 'CAL-AL', 
+  'CDM-SE', 'F CDM - SE', 'BUG-SE', 'ARP-AL', 'F ARP - AL', 'PMI-AL', 'STI-AL', 'CAL-AL', 
   'CRP-AL', 'MDC-AL', 'JCN-AL', 'JGA-AL', 'F MCZ-AL'
 ].sort((a, b) => b.length - a.length);
 

@@ -3,9 +3,9 @@ import * as XLSX from 'xlsx';
 import { Upload, FileSpreadsheet, TrendingUp, AlertCircle, CheckCircle2, Loader2, Table, Package, MapPin, BarChart3, RefreshCw, Info, Files } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList } from 'recharts';
 
-// Lista oficial das 17 bases conforme solicitação
+// Lista oficial das 19 bases conforme solicitação
 const BASES_SE = ['NSS-SE', 'NSG-SE', 'F-IBN SE', 'F-LAG SE', 'PRO-SE', 'F- EST SE', 'CDM-SE', 'F CDM - SE', 'BUG-SE'];
-const BASES_AL = ['ARP-AL', 'PMI-AL', 'STI-AL', 'F-MCZ AL', 'CAL-AL', 'CRP-AL', 'MDC-AL', 'JCN-AL', 'JGA-AL'];
+const BASES_AL = ['ARP-AL', 'F ARP - AL', 'PMI-AL', 'STI-AL', 'F-MCZ AL', 'CAL-AL', 'CRP-AL', 'MDC-AL', 'JCN-AL', 'JGA-AL'];
 const ALL_ALLOWED_BASES = [...BASES_SE, ...BASES_AL].sort((a, b) => b.length - a.length);
 
 interface ForecastResult {
