@@ -2,10 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { DailyRecord, Employee, TripInfo } from './types';
 import Layout from './components/Layout';
-import DailyOperations from './components/DailyOperations';
-import TeamManagement from './components/TeamManagement';
 import ShippedNotArrived from './components/ShippedNotArrived';
-import SecondaryTrips from './components/SecondaryTrips';
 import SuppliesControl from './components/SuppliesControl';
 import EpiControl from './components/EpiControl';
 import QrCodeGenerator from './components/QrCodeGenerator';
@@ -107,7 +104,7 @@ CREATE POLICY "Public Access" ON public.epi_transactions FOR ALL USING (true);
 CREATE POLICY "Public Access" ON public.batch_numbers FOR ALL USING (true);`;
 
 function App() {
-  const [view, setView] = useState<'daily' | 'team' | 'shipped' | 'secondary' | 'supplies' | 'epis' | 'qrcode' | 'batches' | 'forecast'>('daily');
+  const [view, setView] = useState<'shipped' | 'supplies' | 'epis' | 'qrcode' | 'batches' | 'forecast'>('forecast');
   
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [history, setHistory] = useState<DailyRecord[]>([]);
@@ -269,29 +266,11 @@ function App() {
 
   return (
     <Layout currentView={view} onChangeView={setView}>
-      {view === 'daily' && (
-        <DailyOperations 
-          employees={employees} 
-          history={history} 
-          onSaveRecord={handleSaveRecord} 
-        />
-      )}
-      {view === 'team' && (
-        <TeamManagement 
-          employees={employees} 
-          onAddEmployee={handleAddEmployee}
-          onUpdateEmployee={handleUpdateEmployee}
-          onDeleteEmployee={handleDeleteEmployee}
-        />
-      )}
       {view === 'forecast' && (
         <ExpeditionForecast />
       )}
       {view === 'shipped' && (
         <ShippedNotArrived />
-      )}
-      {view === 'secondary' && (
-        <SecondaryTrips />
       )}
       {view === 'batches' && (
         <BatchNumbers />

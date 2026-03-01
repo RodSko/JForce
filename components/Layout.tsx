@@ -1,8 +1,8 @@
 
 import React from 'react';
-import { LayoutDashboard, Users, Boxes, Truck, Map, Box, QrCode, HardHat, Hash, TrendingUp } from 'lucide-react';
+import { Boxes, Truck, Box, QrCode, HardHat, Hash, TrendingUp } from 'lucide-react';
 
-type View = 'daily' | 'team' | 'shipped' | 'secondary' | 'supplies' | 'epis' | 'qrcode' | 'batches' | 'forecast';
+type View = 'shipped' | 'supplies' | 'epis' | 'qrcode' | 'batches' | 'forecast';
 
 interface Props {
   currentView: View;
@@ -12,15 +12,12 @@ interface Props {
 
 const Layout: React.FC<Props> = ({ currentView, onChangeView, children }) => {
   const navItems = [
-    { id: 'daily', label: 'Operação Diária', icon: LayoutDashboard },
     { id: 'forecast', label: 'Previsão de Expedição', icon: TrendingUp },
     { id: 'shipped', label: 'Expedido Mas Não Chegou', icon: Truck },
-    { id: 'secondary', label: 'Viagens Secundárias', icon: Map },
     { id: 'batches', label: 'Números de Lotes', icon: Hash },
     { id: 'supplies', label: 'Controle de Insumos', icon: Box },
     { id: 'epis', label: 'Controle de EPIs', icon: HardHat },
     { id: 'qrcode', label: 'Gerar Qr Code', icon: QrCode },
-    { id: 'team', label: 'Equipe', icon: Users },
   ] as const;
 
   return (
