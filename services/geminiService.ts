@@ -82,7 +82,7 @@ export const generateScheduleSuggestion = async (
       }
     });
 
-    return JSON.parse(response.text);
+    return JSON.parse(response.text || '{}');
   } catch (error) {
     console.error("Gemini API Error:", error);
     throw error;
