@@ -1,14 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
-import { DailyRecord, Employee, TripInfo } from './types';
+import { DailyRecord } from './types';
 import Layout from './components/Layout';
-import DailyOperations from './components/DailyOperations';
-import TeamManagement from './components/TeamManagement';
-import Reports from './components/Reports';
 import GenerateReport from './components/GenerateReport';
 import ManagementReport from './components/ManagementReport';
 import ShippedNotArrived from './components/ShippedNotArrived';
-import SecondaryTrips from './components/SecondaryTrips';
 import SuppliesControl from './components/SuppliesControl';
 import EpiControl from './components/EpiControl';
 import QrCodeGenerator from './components/QrCodeGenerator';
@@ -110,9 +106,8 @@ CREATE POLICY "Public Access" ON public.epi_transactions FOR ALL USING (true);
 CREATE POLICY "Public Access" ON public.batch_numbers FOR ALL USING (true);`;
 
 function App() {
-  const [view, setView] = useState<'daily' | 'team' | 'reports' | 'generate' | 'shipped' | 'management' | 'secondary' | 'supplies' | 'epis' | 'qrcode' | 'batches' | 'forecast'>('forecast');
+  const [view, setView] = useState<'generate' | 'shipped' | 'management' | 'supplies' | 'epis' | 'qrcode' | 'batches' | 'forecast'>('forecast');
   
-  const [employees, setEmployees] = useState<Employee[]>([]);
   const [history, setHistory] = useState<DailyRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -122,13 +117,11 @@ function App() {
     const fetchData = async () => {
       try {
         setError(null);
-        const [empData, histData] = await Promise.all([
-          dataService.getEmployees(),
+        const [histData] = await Promise.all([
           dataService.getHistory(),
           dataService.getSupplies(),
           dataService.getEpis()
         ]);
-        setEmployees(empData);
         setHistory(histData);
       } catch (err: any) {
         console.error("Failed to load data:", err);
@@ -147,46 +140,6 @@ function App() {
     };
     fetchData();
   }, []);
-
-  const handleSaveRecord = async (record: DailyRecord) => {
-    try {
-      await dataService.saveDailyRecord(record);
-      setHistory(prev => {
-        const idx = prev.findIndex(p => p.date === record.date);
-        if (idx >= 0) {
-          const newHistory = [...prev];
-          newHistory[idx] = record;
-          return newHistory;
-        }
-        return [record, ...prev];
-      });
-      return true;
-    } catch (err: any) {
-      console.error("Error saving record:", err);
-      // Caso ocorra erro de coluna inexistente ao salvar
-      if (err.message?.includes('column') || err.code === '42703') {
-        setError('MISSING_TABLES');
-      } else {
-        alert(`Erro ao salvar: ${err.message || "Erro desconhecido"}`);
-      }
-      return false;
-    }
-  };
-
-  const handleAddEmployee = async (newEmp: Employee) => {
-    await dataService.createEmployee(newEmp);
-    setEmployees(prev => [...prev, newEmp]);
-  };
-
-  const handleUpdateEmployee = async (updatedEmp: Employee) => {
-    await dataService.updateEmployee(updatedEmp);
-    setEmployees(prev => prev.map(e => e.id === updatedEmp.id ? updatedEmp : e));
-  };
-
-  const handleDeleteEmployee = async (id: string) => {
-    await dataService.deleteEmployee(id);
-    setEmployees(prev => prev.filter(e => e.id !== id));
-  };
 
   const copySqlToClipboard = () => {
     navigator.clipboard.writeText(SETUP_SQL);
@@ -272,27 +225,6 @@ function App() {
 
   return (
     <Layout currentView={view} onChangeView={setView}>
-      {view === 'daily' && (
-        <DailyOperations 
-          employees={employees} 
-          history={history} 
-          onSaveRecord={handleSaveRecord} 
-        />
-      )}
-      {view === 'team' && (
-        <TeamManagement 
-          employees={employees} 
-          onAddEmployee={handleAddEmployee}
-          onUpdateEmployee={handleUpdateEmployee}
-          onDeleteEmployee={handleDeleteEmployee}
-        />
-      )}
-      {view === 'reports' && (
-        <Reports 
-          history={history} 
-          employees={employees} 
-        />
-      )}
       {view === 'forecast' && (
         <ExpeditionForecast />
       )}
@@ -304,9 +236,6 @@ function App() {
       )}
       {view === 'shipped' && (
         <ShippedNotArrived />
-      )}
-      {view === 'secondary' && (
-        <SecondaryTrips />
       )}
       {view === 'batches' && (
         <BatchNumbers />

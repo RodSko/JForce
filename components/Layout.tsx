@@ -2,7 +2,7 @@
 import React from 'react';
 import { Boxes, FileText, Truck, ClipboardList, Box, QrCode, HardHat, Hash, TrendingUp } from 'lucide-react';
 
-type View = 'daily' | 'team' | 'reports' | 'generate' | 'shipped' | 'management' | 'secondary' | 'supplies' | 'epis' | 'qrcode' | 'batches' | 'forecast';
+type View = 'generate' | 'shipped' | 'management' | 'supplies' | 'epis' | 'qrcode' | 'batches' | 'forecast';
 
 interface Props {
   currentView: View;
