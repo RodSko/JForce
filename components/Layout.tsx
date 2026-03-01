@@ -2,7 +2,7 @@
 import React from 'react';
 import { Boxes, FileText, Truck, ClipboardList, Box, QrCode, HardHat, Hash, TrendingUp } from 'lucide-react';
 
-type View = 'generate' | 'shipped' | 'management' | 'supplies' | 'epis' | 'qrcode' | 'batches' | 'forecast';
+type View = 'generate' | 'shipped' | 'management' | 'supplies' | 'qrcode' | 'batches' | 'forecast';
 
 interface Props {
   currentView: View;
@@ -18,7 +18,6 @@ const Layout: React.FC<Props> = ({ currentView, onChangeView, children }) => {
     { id: 'shipped', label: 'Expedido Mas Não Chegou', icon: Truck },
     { id: 'batches', label: 'Números de Lotes', icon: Hash },
     { id: 'supplies', label: 'Controle de Insumos', icon: Box },
-    { id: 'epis', label: 'Controle de EPIs', icon: HardHat },
     { id: 'qrcode', label: 'Gerar Qr Code', icon: QrCode },
   ] as const;
 

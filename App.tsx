@@ -6,7 +6,6 @@ import GenerateReport from './components/GenerateReport';
 import ManagementReport from './components/ManagementReport';
 import ShippedNotArrived from './components/ShippedNotArrived';
 import SuppliesControl from './components/SuppliesControl';
-import EpiControl from './components/EpiControl';
 import QrCodeGenerator from './components/QrCodeGenerator';
 import BatchNumbers from './components/BatchNumbers';
 import ExpeditionForecast from './components/ExpeditionForecast';
@@ -106,7 +105,7 @@ CREATE POLICY "Public Access" ON public.epi_transactions FOR ALL USING (true);
 CREATE POLICY "Public Access" ON public.batch_numbers FOR ALL USING (true);`;
 
 function App() {
-  const [view, setView] = useState<'generate' | 'shipped' | 'management' | 'supplies' | 'epis' | 'qrcode' | 'batches' | 'forecast'>('forecast');
+  const [view, setView] = useState<'generate' | 'shipped' | 'management' | 'supplies' | 'qrcode' | 'batches' | 'forecast'>('forecast');
   
   const [history, setHistory] = useState<DailyRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -119,8 +118,7 @@ function App() {
         setError(null);
         const [histData] = await Promise.all([
           dataService.getHistory(),
-          dataService.getSupplies(),
-          dataService.getEpis()
+          dataService.getSupplies()
         ]);
         setHistory(histData);
       } catch (err: any) {
@@ -242,9 +240,6 @@ function App() {
       )}
       {view === 'supplies' && (
         <SuppliesControl />
-      )}
-      {view === 'epis' && (
-        <EpiControl />
       )}
       {view === 'qrcode' && (
         <QrCodeGenerator />
