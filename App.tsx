@@ -2,8 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { DailyRecord } from './types';
 import Layout from './components/Layout';
-import GenerateReport from './components/GenerateReport';
-import ManagementReport from './components/ManagementReport';
+import GenerateReport from './components/GenerateReport_New';
+import ManagementReport from './components/ManagementReport_New';
 import ShippedNotArrived from './components/ShippedNotArrived';
 import SuppliesControl from './components/SuppliesControl';
 import QrCodeGenerator from './components/QrCodeGenerator';
