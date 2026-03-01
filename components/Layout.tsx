@@ -2,7 +2,7 @@
 import React from 'react';
 import { LayoutDashboard, Users, BarChart3, Boxes, FileText, Truck, ClipboardList, Map, Box, QrCode, HardHat, Hash, TrendingUp } from 'lucide-react';
 
-type View = 'reports' | 'generate' | 'shipped' | 'management' | 'secondary' | 'supplies' | 'epis' | 'qrcode' | 'batches' | 'forecast';
+type View = 'daily' | 'team' | 'reports' | 'generate' | 'shipped' | 'management' | 'secondary' | 'supplies' | 'epis' | 'qrcode' | 'batches' | 'forecast';
 
 interface Props {
   currentView: View;
@@ -12,6 +12,7 @@ interface Props {
 
 const Layout: React.FC<Props> = ({ currentView, onChangeView, children }) => {
   const navItems = [
+    { id: 'daily', label: 'Operação Diária', icon: LayoutDashboard },
     { id: 'reports', label: 'Relatórios & Métricas', icon: BarChart3 },
     { id: 'forecast', label: 'Previsão de Expedição', icon: TrendingUp },
     { id: 'generate', label: 'Gerar Report Carregamento', icon: FileText },
@@ -22,6 +23,7 @@ const Layout: React.FC<Props> = ({ currentView, onChangeView, children }) => {
     { id: 'supplies', label: 'Controle de Insumos', icon: Box },
     { id: 'epis', label: 'Controle de EPIs', icon: HardHat },
     { id: 'qrcode', label: 'Gerar Qr Code', icon: QrCode },
+    { id: 'team', label: 'Equipe', icon: Users },
   ] as const;
 
   return (
