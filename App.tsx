@@ -4,9 +4,6 @@ import { DailyRecord, Employee, TripInfo } from './types';
 import Layout from './components/Layout';
 import DailyOperations from './components/DailyOperations';
 import TeamManagement from './components/TeamManagement';
-import Reports from './components/Reports';
-import GenerateReport from './components/GenerateReport';
-import ManagementReport from './components/ManagementReport';
 import ShippedNotArrived from './components/ShippedNotArrived';
 import SecondaryTrips from './components/SecondaryTrips';
 import SuppliesControl from './components/SuppliesControl';
@@ -110,7 +107,7 @@ CREATE POLICY "Public Access" ON public.epi_transactions FOR ALL USING (true);
 CREATE POLICY "Public Access" ON public.batch_numbers FOR ALL USING (true);`;
 
 function App() {
-  const [view, setView] = useState<'daily' | 'team' | 'reports' | 'generate' | 'shipped' | 'management' | 'secondary' | 'supplies' | 'epis' | 'qrcode' | 'batches' | 'forecast'>('daily');
+  const [view, setView] = useState<'daily' | 'team' | 'shipped' | 'secondary' | 'supplies' | 'epis' | 'qrcode' | 'batches' | 'forecast'>('daily');
   
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [history, setHistory] = useState<DailyRecord[]>([]);
@@ -287,20 +284,8 @@ function App() {
           onDeleteEmployee={handleDeleteEmployee}
         />
       )}
-      {view === 'reports' && (
-        <Reports 
-          history={history} 
-          employees={employees} 
-        />
-      )}
       {view === 'forecast' && (
         <ExpeditionForecast />
-      )}
-      {view === 'generate' && (
-        <GenerateReport />
-      )}
-      {view === 'management' && (
-        <ManagementReport history={history} />
       )}
       {view === 'shipped' && (
         <ShippedNotArrived />

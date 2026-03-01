@@ -1,8 +1,8 @@
 
 import React from 'react';
-import { LayoutDashboard, Users, BarChart3, Boxes, FileText, Truck, ClipboardList, Map, Box, QrCode, HardHat, Hash, TrendingUp } from 'lucide-react';
+import { LayoutDashboard, Users, Boxes, Truck, Map, Box, QrCode, HardHat, Hash, TrendingUp } from 'lucide-react';
 
-type View = 'daily' | 'team' | 'reports' | 'generate' | 'shipped' | 'management' | 'secondary' | 'supplies' | 'epis' | 'qrcode' | 'batches' | 'forecast';
+type View = 'daily' | 'team' | 'shipped' | 'secondary' | 'supplies' | 'epis' | 'qrcode' | 'batches' | 'forecast';
 
 interface Props {
   currentView: View;
@@ -13,10 +13,7 @@ interface Props {
 const Layout: React.FC<Props> = ({ currentView, onChangeView, children }) => {
   const navItems = [
     { id: 'daily', label: 'Operação Diária', icon: LayoutDashboard },
-    { id: 'reports', label: 'Relatórios & Métricas', icon: BarChart3 },
     { id: 'forecast', label: 'Previsão de Expedição', icon: TrendingUp },
-    { id: 'generate', label: 'Gerar Report Carregamento', icon: FileText },
-    { id: 'management', label: 'Gerar Report Gestão', icon: ClipboardList },
     { id: 'shipped', label: 'Expedido Mas Não Chegou', icon: Truck },
     { id: 'secondary', label: 'Viagens Secundárias', icon: Map },
     { id: 'batches', label: 'Números de Lotes', icon: Hash },
