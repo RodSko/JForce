@@ -1,6 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { Employee, TaskDefinition, DailyRecord } from '../types';
-import { TASK_DEFINITIONS } from '../constants';
+import { Employee, TaskDefinition, DailyRecord } from '@/types';
+import { TASK_DEFINITIONS } from '@/constants';
 
 export const generateScheduleSuggestion = async (
   employees: Employee[],
