@@ -10,8 +10,8 @@
     "strict": true,
     "forceConsistentCasingInFileNames": true,
     "module": "ESNext",
-    "moduleResolution": "bundler",
-    "baseUrl": ".",
+    "moduleResolution": "node",
+    "baseUrl": "./",
     "paths": {
       "@/*": ["src/*"]
     },
@@ -20,6 +20,6 @@
     "noEmit": true,
     "jsx": "react-jsx"
   },
-  "include": ["src", "./*.ts", "./*.tsx"],
-  "exclude": ["node_modules", "vite.config.ts"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.d.ts"],
+  "exclude": ["node_modules", "dist", "vite.config.ts"]
 }
