@@ -1,20 +1,19 @@
-
 import React, { useState, useEffect } from 'react';
-import { DailyRecord, Employee } from './types.ts';
-import Layout from '@./components/Layout.tsx';
-import DailyOperations from './components/DailyOperations.tsx';
-import TeamManagement from './components/TeamManagement.tsx';
-import Reports from './components/Reports.tsx';
-import GenerateReport from './components/GenerateReport.tsx';
-import ManagementReport from './components/ManagementReport.tsx';
-import ShippedNotArrived from './components/ShippedNotArrived.tsx';
-import SecondaryTrips from './components/SecondaryTrips.tsx';
-import SuppliesControl from './components/SuppliesControl.tsx';
-import EpiControl from './components/EpiControl.tsx';
-import QrCodeGenerator from './components/QrCodeGenerator.tsx';
-import BatchNumbers from './components/BatchNumbers.tsx';
-import ExpeditionForecast from './components/ExpeditionForecast.tsx';
-import { dataService } from './services/dataService.ts';
+import { DailyRecord, Employee } from '@/types';
+import Layout from '@/components/Layout';
+import DailyOperations from '@/components/DailyOperations';
+import TeamManagement from '@/components/TeamManagement';
+import Reports from '@/components/Reports';
+import GenerateReport from '@/components/GenerateReport';
+import ManagementReport from '@/components/ManagementReport';
+import ShippedNotArrived from '@/components/ShippedNotArrived';
+import SecondaryTrips from '@/components/SecondaryTrips';
+import SuppliesControl from '@/components/SuppliesControl';
+import EpiControl from '@/components/EpiControl';
+import QrCodeGenerator from '@/components/QrCodeGenerator';
+import BatchNumbers from '@/components/BatchNumbers';
+import ExpeditionForecast from '@/components/ExpeditionForecast';
+import { dataService } from '@/services/dataService';
 import { Loader2, AlertTriangle, Database, Copy, Check } from 'lucide-react';
 
 // SQL Script atualizado para incluir todas as colunas necessárias
