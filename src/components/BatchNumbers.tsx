@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Hash, Search, Plus, Trash2, Upload, FileSpreadsheet, Loader2, AlertTriangle, CheckCircle2, RefreshCw, BarChart2, PackageCheck, Info, MapPin, ListChecks, ArrowRight, FilterX, Files, Eraser } from 'lucide-react';
-import { BatchNumber } from '../types';
-import { dataService } from '../services/dataService';
+import { BatchNumber } from '@/types';
+import { dataService } from '@/services/dataService';
 import * as XLSX from 'xlsx';
 
 // Lista exata das 19 bases homologadas da operação SE AJU

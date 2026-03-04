@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { HardHat, Plus, Search, Filter, History, Package, User, Trash2, Pencil, AlertTriangle, ArrowDownLeft, ArrowUpRight, Loader2, ShieldCheck, CalendarClock, X, AlertCircle } from 'lucide-react';
-import { EpiItem, EpiTransaction, Employee } from '../types';
-import { dataService } from '../services/dataService';
+import { EpiItem, EpiTransaction, Employee } from '@/types';
+import { dataService } from '@/services/dataService';
 
 const EpiControl: React.FC = () => {
   // --- Estados Principais ---
