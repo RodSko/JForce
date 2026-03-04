@@ -5,10 +5,10 @@ import Layout from '@/components/Layout';
 import DailyOperations from '@/components/DailyOperations';
 import TeamManagement from '@/components/TeamManagement';
 import Reports from '@/components/Reports';
-
+import GenerateReport from '@/components/GenerateReport';
 import ManagementReport from '@/components/ManagementReport';
 import ShippedNotArrived from '@/components/ShippedNotArrived';
-
+import SecondaryTrips from '@/components/SecondaryTrips';
 import SuppliesControl from '@/components/SuppliesControl';
 import EpiControl from '@/components/EpiControl';
 import QrCodeGenerator from '@/components/QrCodeGenerator';
@@ -296,14 +296,18 @@ function App() {
       {view === 'forecast' && (
         <ExpeditionForecast />
       )}
-     
+      {view === 'generate' && (
+        <GenerateReport />
+      )}
       {view === 'management' && (
         <ManagementReport history={history} />
       )}
       {view === 'shipped' && (
         <ShippedNotArrived />
       )}
-    
+      {view === 'secondary' && (
+        <SecondaryTrips />
+      )}
       {view === 'batches' && (
         <BatchNumbers />
       )}
