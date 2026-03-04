@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { DailyRecord, Employee, TaskCategory } from '@/types';
-import { TASK_DEFINITIONS } from '@/constants';
+import { DailyRecord, Employee, TaskCategory } from '../types';
+import { TASK_DEFINITIONS } from '../constants';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { Calendar, Filter, Table2, User, Container, Lock, Unlock } from 'lucide-react';
 
@@ -62,14 +62,14 @@ const Reports: React.FC<Props> = ({ history, employees }) => {
       const stats: any = { name: emp.name };
       
       // Initialize counts
-      Object.values(TaskCategory).forEach(cat => stats[cat] = 0);
+      Object.values(TaskCategory).forEach(cat => (stats as any)[cat] = 0);
 
       filteredHistory.forEach(day => {
         const assignment = day.assignments.find(a => a.employeeId === emp.id);
         if (assignment) {
           const taskDef = TASK_DEFINITIONS.find(t => t.id === assignment.taskId);
           if (taskDef) {
-            stats[taskDef.category] = (stats[taskDef.category] || 0) + 1;
+            (stats as any)[taskDef.category] = ((stats as any)[taskDef.category] || 0) + 1;
           }
         }
       });
@@ -372,8 +372,8 @@ const Reports: React.FC<Props> = ({ history, employees }) => {
             <thead className="bg-slate-50 text-slate-500 font-medium">
               <tr>
                 <th className="px-4 py-3">Colaborador</th>
-                {Object.values(TaskCategory).map(cat => (
-                  <th key={cat} className="px-4 py-3">{cat}</th>
+              {Object.values(TaskCategory).map((cat) => (
+                  <th key={cat as string} className="px-4 py-3">{cat}</th>
                 ))}
                 <th className="px-4 py-3">Total Dias</th>
               </tr>

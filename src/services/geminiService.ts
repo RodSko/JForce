@@ -1,6 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { Employee, TaskDefinition, DailyRecord } from '@/types';
-import { TASK_DEFINITIONS } from '@/constants';
+import { Employee, TaskDefinition, DailyRecord } from '../types';
+import { TASK_DEFINITIONS } from '../constants';
 
 export const generateScheduleSuggestion = async (
   employees: Employee[],
@@ -82,7 +82,7 @@ export const generateScheduleSuggestion = async (
       }
     });
 
-    return JSON.parse(response.text || '{"rationale": "Erro ao gerar recomendação", "assignments": []}');
+    return JSON.parse(response.text || '{}');
   } catch (error) {
     console.error("Gemini API Error:", error);
     throw error;

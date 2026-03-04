@@ -1,20 +1,16 @@
 
 import React, { useState, useEffect } from 'react';
-import { DailyRecord, Employee, TripInfo } from '@/types';
-import Layout from '@/components/Layout';
-import DailyOperations from '@/components/DailyOperations';
-import TeamManagement from '@/components/TeamManagement';
-import Reports from '@/components/Reports';
-import GenerateReport from '@/components/GenerateReport';
-import ManagementReport from '@/components/ManagementReport';
-import ShippedNotArrived from '@/components/ShippedNotArrived';
-import SecondaryTrips from '@/components/SecondaryTrips';
-import SuppliesControl from '@/components/SuppliesControl';
-import EpiControl from '@/components/EpiControl';
-import QrCodeGenerator from '@/components/QrCodeGenerator';
-import BatchNumbers from '@/components/BatchNumbers';
-import ExpeditionForecast from '@/components/ExpeditionForecast';
-import { dataService } from '@/services/dataService';
+import { DailyRecord, Employee, TripInfo } from './types';
+import Layout from './components/Layout';
+import DailyOperations from './components/DailyOperations';
+import TeamManagement from './components/TeamManagement';
+import ShippedNotArrived from './components/ShippedNotArrived';
+import SuppliesControl from './components/SuppliesControl';
+import QrCodeGenerator from './components/QrCodeGenerator';
+import BatchNumbers from './components/BatchNumbers';
+import ExpeditionForecast from './components/ExpeditionForecast';
+import GenerateReport from './components/GenerateReport';
+import { dataService } from './services/dataService';
 import { Loader2, AlertTriangle, Database, Copy, Check } from 'lucide-react';
 
 // SQL Script atualizado para incluir todas as colunas necessárias
@@ -110,7 +106,7 @@ CREATE POLICY "Public Access" ON public.epi_transactions FOR ALL USING (true);
 CREATE POLICY "Public Access" ON public.batch_numbers FOR ALL USING (true);`;
 
 function App() {
-  const [view, setView] = useState<'daily' | 'team' | 'reports' | 'generate' | 'shipped' | 'management' | 'secondary' | 'supplies' | 'epis' | 'qrcode' | 'batches' | 'forecast'>('daily');
+  const [view, setView] = useState<'daily' | 'team' | 'reports' | 'generate' | 'shipped' | 'supplies' | 'epis' | 'qrcode' | 'batches' | 'forecast'>('forecast');
   
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [history, setHistory] = useState<DailyRecord[]>([]);
@@ -287,26 +283,11 @@ function App() {
           onDeleteEmployee={handleDeleteEmployee}
         />
       )}
-      {view === 'reports' && (
-        <Reports 
-          history={history} 
-          employees={employees} 
-        />
-      )}
       {view === 'forecast' && (
         <ExpeditionForecast />
       )}
-      {view === 'generate' && (
-        <GenerateReport />
-      )}
-      {view === 'management' && (
-        <ManagementReport history={history} />
-      )}
       {view === 'shipped' && (
         <ShippedNotArrived />
-      )}
-      {view === 'secondary' && (
-        <SecondaryTrips />
       )}
       {view === 'batches' && (
         <BatchNumbers />
@@ -314,11 +295,11 @@ function App() {
       {view === 'supplies' && (
         <SuppliesControl />
       )}
-      {view === 'epis' && (
-        <EpiControl />
-      )}
       {view === 'qrcode' && (
         <QrCodeGenerator />
+      )}
+      {view === 'generate' && (
+        <GenerateReport />
       )}
     </Layout>
   );
