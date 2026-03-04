@@ -63,6 +63,7 @@ const Reports: React.FC<Props> = ({ history, employees }) => {
       const stats: any = { name: emp.name };
       
       // Initialize counts
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       Object.values(TaskCategory).forEach(cat => (stats as any)[cat] = 0);
 
       filteredHistory.forEach(day => {
@@ -70,6 +71,7 @@ const Reports: React.FC<Props> = ({ history, employees }) => {
         if (assignment) {
           const taskDef = TASK_DEFINITIONS.find(t => t.id === assignment.taskId);
           if (taskDef) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (stats as any)[taskDef.category] = ((stats as any)[taskDef.category] || 0) + 1;
           }
         }

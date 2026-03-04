@@ -33,6 +33,7 @@ const TeamManagement: React.FC<Props> = ({ employees, onAddEmployee, onUpdateEmp
     } catch (error: unknown) {
       console.error("Error adding employee:", error);
       // Mostramos o erro detalhado para ajudar no diagnóstico
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const errorDetail = (error as any).message || ((error as any).error_description) || JSON.stringify(error);
       alert(`ERRO AO ADICIONAR:\n${errorDetail}\n\nNota: Certifique-se de que a coluna 'gender' existe na sua tabela 'employees' do Supabase.`);
     } finally {
@@ -44,6 +45,7 @@ const TeamManagement: React.FC<Props> = ({ employees, onAddEmployee, onUpdateEmp
     try {
       await onUpdateEmployee({ ...emp, active: !emp.active });
     } catch (error: unknown) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       alert(`Erro ao atualizar status: ${(error as any).message}`);
     }
   };
@@ -66,6 +68,7 @@ const TeamManagement: React.FC<Props> = ({ employees, onAddEmployee, onUpdateEmp
         setEditingId(null);
       } catch (error: unknown) {
         console.error("Error updating employee:", error);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         alert(`ERRO AO SALVAR:\n${(error as any).message}`);
       } finally {
         setLoading(false);
@@ -85,6 +88,7 @@ const TeamManagement: React.FC<Props> = ({ employees, onAddEmployee, onUpdateEmp
       setItemToDelete(null);
     } catch (error: unknown) {
       console.error("Error deleting employee:", error);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       alert(`Erro ao excluir: ${(error as any).message}`);
     } finally {
       setLoading(false);

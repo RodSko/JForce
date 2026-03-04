@@ -125,6 +125,7 @@ const EpiControl: React.FC = () => {
       setShowAddModal(false);
     } catch (e: unknown) {
       console.error(e);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       alert(`Erro ao salvar EPI: ${(e as any).message || "Verifique se a tabela 'epis' foi criada no Supabase."}`);
     } finally {
       setProcessing(false);
@@ -148,6 +149,7 @@ const EpiControl: React.FC = () => {
       setItemToDelete(null);
     } catch (err: unknown) {
       console.error(err);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       alert(`Erro ao excluir: ${(err as any).message}`);
     } finally {
       setDeletingId(null);
@@ -205,6 +207,7 @@ const EpiControl: React.FC = () => {
       setShowDeliverModal(false);
     } catch (e: unknown) {
        console.error(e);
+       // eslint-disable-next-line @typescript-eslint/no-explicit-any
        alert(`Erro ao processar: ${(e as any).message}`);
     } finally {
       setProcessing(false);

@@ -184,6 +184,7 @@ const GenerateReport: React.FC = () => {
       } catch (err: unknown) {
         console.error("Erro no processamento:", err);
         setImportStatus('error');
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         setStatusMessage((err as any).message || "Erro ao processar arquivo.");
       }
     };
@@ -265,6 +266,7 @@ const GenerateReport: React.FC = () => {
       } catch (err: unknown) {
         console.error(err);
         setAnalyticsStatus('error');
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         alert((err as any).message || "Erro ao processar planilha.");
       }
     };
@@ -289,7 +291,7 @@ const GenerateReport: React.FC = () => {
       link.href = image;
       link.download = `Relatorio_Visual_${opDate}.png`;
       link.click();
-    } catch (err) { alert("Não foi possível gerar a imagem."); }
+    } catch { alert("Não foi possível gerar a imagem."); }
   };
 
   const dataUrlToArrayBuffer = async (dataUrl: string) => {
@@ -346,7 +348,7 @@ const GenerateReport: React.FC = () => {
         try {
           const imageBuffer = await dataUrlToArrayBuffer(vehiclePhotos[item.id]);
           photoChildren = [new Paragraph({ children: [new ImageRun({ data: imageBuffer, transformation: { width: 250, height: 150 } })], alignment: AlignmentType.CENTER })];
-        } catch (e) {
+        } catch {
             // ignore
         }
       }
