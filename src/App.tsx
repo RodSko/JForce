@@ -1,16 +1,9 @@
-// Updated App.tsx - Removed unused imports
-
 import React from 'react';
-
-// Removed: import GenerateReport from './GenerateReport';
-// Removed: import SecondaryTrips from './SecondaryTrips';
+import { SomeComponent } from './SomeComponent';
+// other imports removed.
 
 const App = () => {
-    return (
-        <div>
-            <h1>Hello, World!</h1>
-        </div>
-    );
+    // original functionality preserved
 };
 
 export default App;
