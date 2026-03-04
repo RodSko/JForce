@@ -5,7 +5,7 @@ import Layout from '@/components/Layout';
 import DailyOperations from '@/components/DailyOperations';
 import TeamManagement from '@/components/TeamManagement';
 import Reports from '@/components/Reports';
-import GenerateReport from '@/components/GenerateReport';
+
 import ManagementReport from '@/components/ManagementReport';
 import ShippedNotArrived from '@/components/ShippedNotArrived';
 import SecondaryTrips from '@/components/SecondaryTrips';
