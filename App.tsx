@@ -301,26 +301,6 @@ function App() {
       {view === 'generate' && (
         <GenerateReport />
       )}
-      {/*
-      {view === 'reports' && (
-        <Reports 
-          history={history} 
-          employees={employees} 
-        />
-      )}
-      {view === 'generate' && (
-        <GenerateReport />
-      )}
-      {view === 'management' && (
-        <ManagementReport history={history} />
-      )}
-      {view === 'secondary' && (
-        <SecondaryTrips />
-      )}
-      {view === 'epis' && (
-        <EpiControl />
-      )}
-      */}
     </Layout>
   );
 }
