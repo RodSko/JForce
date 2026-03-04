@@ -296,9 +296,7 @@ function App() {
       {view === 'forecast' && (
         <ExpeditionForecast />
       )}
-      {view === 'generate' && (
-        <GenerateReport />
-      )}
+    
       {view === 'management' && (
         <ManagementReport history={history} />
       )}
