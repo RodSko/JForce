@@ -120,7 +120,7 @@ const ShippedNotArrived: React.FC = () => {
   const handleProcess = () => {
     if (!dataset.length) return;
     
-    const missingCols: string[] = [];
+    const missingCols = [];
     if (!colMapping.time) missingCols.push("Tempo de digitalização");
     if (!colMapping.order) missingCols.push("Número de pedido JMS");
     if (!colMapping.base) missingCols.push("Base de escaneamento");

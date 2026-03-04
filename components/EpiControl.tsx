@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { HardHat, Plus, Search, History, User, Trash2, Pencil, AlertTriangle, ArrowDownLeft, ArrowUpRight, Loader2, ShieldCheck } from 'lucide-react';
+import { HardHat, Plus, Search, Filter, History, Package, User, Trash2, Pencil, AlertTriangle, ArrowDownLeft, ArrowUpRight, Loader2, ShieldCheck, CalendarClock, X, AlertCircle } from 'lucide-react';
 import { EpiItem, EpiTransaction, Employee } from '../types';
 import { dataService } from '../services/dataService';
 
@@ -123,10 +123,9 @@ const EpiControl: React.FC = () => {
 
       await loadData();
       setShowAddModal(false);
-    } catch (e: unknown) {
+    } catch (e: any) {
       console.error(e);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      alert(`Erro ao salvar EPI: ${(e as any).message || "Verifique se a tabela 'epis' foi criada no Supabase."}`);
+      alert(`Erro ao salvar EPI: ${e.message || "Verifique se a tabela 'epis' foi criada no Supabase."}`);
     } finally {
       setProcessing(false);
     }
@@ -147,10 +146,9 @@ const EpiControl: React.FC = () => {
       setEpis(prev => prev.filter(x => x.id !== itemToDelete.id));
       await loadData(); // Reload to refresh history view too
       setItemToDelete(null);
-    } catch (err: unknown) {
+    } catch (err: any) {
       console.error(err);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      alert(`Erro ao excluir: ${(err as any).message}`);
+      alert(`Erro ao excluir: ${err.message}`);
     } finally {
       setDeletingId(null);
     }
@@ -205,10 +203,9 @@ const EpiControl: React.FC = () => {
 
       await loadData();
       setShowDeliverModal(false);
-    } catch (e: unknown) {
+    } catch (e: any) {
        console.error(e);
-       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-       alert(`Erro ao processar: ${(e as any).message}`);
+       alert(`Erro ao processar: ${e.message}`);
     } finally {
       setProcessing(false);
     }

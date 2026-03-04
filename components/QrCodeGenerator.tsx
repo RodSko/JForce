@@ -16,7 +16,6 @@ const QrCodeGenerator: React.FC = () => {
 
   // Intervalo do Play Automático (1.5 segundos)
   useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let interval: any;
     
     if (isPlaying && codes.length > 0) {
@@ -51,14 +50,12 @@ const QrCodeGenerator: React.FC = () => {
         const worksheet = workbook.Sheets[firstSheetName];
         
         // Ler como array de arrays para pegar a primeira coluna independente do cabeçalho
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const jsonData = XLSX.utils.sheet_to_json<any>(worksheet, { header: 1 });
         
         // Extrair dados: ignorar cabeçalho se parecer texto, pegar primeira coluna
         // Filtra vazios
         const extractedCodes: string[] = [];
         
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         jsonData.forEach((row: any, index: number) => {
            // Pega o primeiro valor da linha que não seja vazio
            if (row && row.length > 0) {

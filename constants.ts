@@ -1,4 +1,4 @@
-import { TaskCategory, TaskDefinition, Employee } from '@/types';
+import { TaskCategory, TaskDefinition, Employee } from './types';
 
 export const TASK_DEFINITIONS: TaskDefinition[] = [
   {

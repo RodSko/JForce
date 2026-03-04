@@ -1,5 +1,7 @@
+
 import React, { useRef, useState } from 'react';
-import { Upload, FileSpreadsheet, FileText, AlertCircle, CheckCircle2, Printer, ImageDown, Camera, BarChart3, LayoutGrid } from 'lucide-react';
+/* Added Loader2 to imports from lucide-react */
+import { Upload, FileSpreadsheet, FileText, AlertCircle, CheckCircle2, Printer, ImageDown, Camera, BarChart3, LayoutGrid, Calendar, Loader2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Document, Packer, Paragraph, Table, TableCell, TableRow, WidthType, BorderStyle, TextRun, AlignmentType, VerticalAlign, PageOrientation, ImageRun } from 'docx';
 import html2canvas from 'html2canvas';
@@ -35,6 +37,9 @@ const GenerateReport: React.FC<Props> = () => {
   const [reportData, setReportData] = useState<ReportItem[]>([]);
   const [vehiclePhotos, setVehiclePhotos] = useState<Record<string, string>>({});
   const [activePhotoId, setActivePhotoId] = useState<string | null>(null);
+  
+  // Data selecionada para o relatório (Padrão: Hoje)
+  const [opDate, setOpDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
   // --- STATES FOR ANALYTICS REPORT ---
   const analyticsInputRef = useRef<HTMLInputElement>(null);
@@ -43,10 +48,10 @@ const GenerateReport: React.FC<Props> = () => {
   const [totalExpedited, setTotalExpedited] = useState<number>(0);
 
   // --- SHARED HELPERS ---
-  const findColumnName = (row: any, candidates: string[]): string | undefined => {
+  const findColumnName = (row: any, possibleNames: string[]): string | undefined => {
     if (!row) return undefined;
     const keys = Object.keys(row);
-    for (const name of candidates) {
+    for (const name of possibleNames) {
       const found = keys.find(k => k.trim().toLowerCase() === name.toLowerCase());
       if (found) return found;
     }
@@ -64,9 +69,10 @@ const GenerateReport: React.FC<Props> = () => {
     return 0;
   };
 
-  const getTodayDate = () => {
-    const today = new Date();
-    return today.toLocaleDateString('pt-BR');
+  const formatDisplayDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    const [year, month, day] = dateStr.split('-');
+    return `${day}/${month}/${year}`;
   };
 
   // --- VISUAL REPORT HANDLERS ---
@@ -237,7 +243,6 @@ const GenerateReport: React.FC<Props> = () => {
              let baseName = 'INDEFINIDO';
              if (colBase && row[colBase]) {
                baseName = String(row[colBase]).trim().toUpperCase();
-               // Limpeza básica do nome da base se necessário (ex: remover prefixos comuns)
                baseName = baseName.replace('CD ', '').replace('HUB ', ''); 
              }
              
@@ -245,10 +250,9 @@ const GenerateReport: React.FC<Props> = () => {
            }
         });
 
-        // Formatar para gráfico
         const chartData = Object.entries(baseCounts)
           .map(([base, count]) => ({ base, count }))
-          .sort((a, b) => b.count - a.count); // Ordenar maior para menor
+          .sort((a, b) => b.count - a.count);
 
         setTotalExpedited(totalCount);
         setAnalyticsData(chartData);
@@ -281,7 +285,7 @@ const GenerateReport: React.FC<Props> = () => {
       const image = canvas.toDataURL("image/png", 1.0);
       const link = document.createElement('a');
       link.href = image;
-      link.download = `Relatorio_Visual_${new Date().toISOString().split('T')[0]}.png`;
+      link.download = `Relatorio_Visual_${opDate}.png`;
       link.click();
     } catch (err) { alert("Não foi possível gerar a imagem."); }
   };
@@ -322,7 +326,7 @@ const GenerateReport: React.FC<Props> = () => {
     XLSX.utils.sheet_add_aoa(ws, grid, { origin: "A1" });
     ws['!merges'] = newMerges;
     XLSX.utils.book_append_sheet(wb, ws, "Relatório");
-    XLSX.writeFile(wb, `Relatorio_Operacional_${new Date().toISOString().split('T')[0]}.xlsx`);
+    XLSX.writeFile(wb, `Relatorio_Operacional_${opDate}.xlsx`);
   };
 
   const handleExportToWord = async () => {
@@ -366,7 +370,7 @@ const GenerateReport: React.FC<Props> = () => {
     const blob = await Packer.toBlob(doc);
     const link = document.createElement('a');
     link.href = window.URL.createObjectURL(blob);
-    link.download = `Relatorio_Visual_${new Date().toISOString().split('T')[0]}.docx`;
+    link.download = `Relatorio_Visual_${opDate}.docx`;
     link.click();
   };
 
@@ -402,33 +406,52 @@ const GenerateReport: React.FC<Props> = () => {
       {/* === TAB 1: VISUAL REPORT === */}
       {activeTab === 'visual' && (
         <>
-          <div className="print:hidden max-w-2xl mx-auto">
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm relative flex flex-col justify-between">
-              <div className="text-center">
-                <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mb-4 mx-auto">
+          <div className="print:hidden flex flex-col md:flex-row gap-6 items-start">
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex-1 w-full">
+              <div className="text-center md:text-left flex flex-col md:flex-row items-center gap-6">
+                <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center shrink-0">
                   <Upload className="w-8 h-8 text-indigo-600" />
                 </div>
-                <h3 className="text-xl font-bold text-slate-800 mb-2">Gerar Relatório Visual</h3>
-                <p className="text-slate-500 text-sm mb-6 max-w-md mx-auto">
-                  Carregue a planilha operacional para gerar os cartões de carregamento.
-                </p>
+                <div className="flex-1">
+                  <h3 className="text-xl font-bold text-slate-800 mb-1">Configurar Relatório Visual</h3>
+                  <p className="text-slate-500 text-sm mb-4">
+                    Selecione a data da operação e carregue a planilha de carregamento.
+                  </p>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="relative">
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Data da Operação</label>
+                      <div className="relative">
+                        <input 
+                          type="date" 
+                          value={opDate} 
+                          onChange={(e) => setOpDate(e.target.value)} 
+                          className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-500/20" 
+                        />
+                        <Calendar className="w-4 h-4 text-indigo-400 absolute left-3 top-2.5 pointer-events-none" />
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-end">
+                      <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".csv,.xlsx,.xls" className="hidden" />
+                      <button 
+                        onClick={triggerFileInput}
+                        disabled={importStatus === 'loading'}
+                        className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-xl font-medium transition-colors disabled:opacity-50 shadow-md"
+                      >
+                        {importStatus === 'loading' ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />} 
+                        {importStatus === 'loading' ? 'Lendo...' : 'Selecionar Planilha'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
-              
-              <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".csv,.xlsx,.xls" className="hidden" />
-              
-              <button 
-                onClick={triggerFileInput}
-                disabled={importStatus === 'loading'}
-                className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-xl font-medium transition-colors disabled:opacity-50 text-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 transform"
-              >
-                {importStatus === 'loading' ? 'Processando...' : <><FileText className="w-5 h-5" /> Selecionar Planilha</>}
-              </button>
 
               {importStatus !== 'idle' && (
-                <div className={`mt-4 p-3 rounded-lg text-sm flex items-start justify-center gap-2 ${importStatus === 'error' ? 'bg-red-50 text-red-700' : importStatus === 'success' ? 'bg-green-50 text-green-700' : 'bg-slate-50 text-slate-600'}`}>
+                <div className={`mt-4 p-3 rounded-lg text-sm flex items-start gap-2 ${importStatus === 'error' ? 'bg-red-50 text-red-700' : importStatus === 'success' ? 'bg-green-50 text-green-700' : 'bg-slate-50 text-slate-600'}`}>
                   {importStatus === 'error' && <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />}
                   {importStatus === 'success' && <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />}
-                  <span>{statusMessage}</span>
+                  <span className="font-medium">{statusMessage}</span>
                 </div>
               )}
             </div>
@@ -437,7 +460,7 @@ const GenerateReport: React.FC<Props> = () => {
           {reportData.length > 0 && (
             <div className="animate-fade-in">
               <div className="print:hidden flex flex-col sm:flex-row justify-between items-center mb-6 bg-slate-100 p-4 rounded-lg border border-slate-200 gap-4 mt-8">
-                <h3 className="text-xl font-bold text-slate-800">Pré-visualização</h3>
+                <h3 className="text-xl font-bold text-slate-800">Pré-visualização do Relatório</h3>
                 <div className="flex flex-wrap gap-3">
                   <button onClick={handleExportToWord} className="flex items-center gap-2 bg-blue-700 text-white px-4 py-2 rounded-lg hover:bg-blue-800 transition-colors text-sm font-medium"><FileText className="w-4 h-4" /> Word</button>
                   <button onClick={handleExportToExcel} className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"><FileSpreadsheet className="w-4 h-4" /> Excel</button>
@@ -447,7 +470,9 @@ const GenerateReport: React.FC<Props> = () => {
               </div>
 
               <div ref={reportContainerRef} className="bg-white p-4">
-                <div className="w-full bg-[#FF0000] text-white font-bold text-2xl text-center py-4 mb-4 uppercase">CARREGAMENTO SE AJU - {getTodayDate()}</div>
+                <div className="w-full bg-[#FF0000] text-white font-black text-2xl text-center py-4 mb-4 uppercase tracking-tighter">
+                  CARREGAMENTO SE AJU - {formatDisplayDate(opDate)}
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 print:grid-cols-4 print:gap-4">
                   {reportData.map((item, idx) => (
                     <div key={idx} className="border-2 border-slate-800 break-inside-avoid bg-white flex flex-col">
@@ -457,13 +482,13 @@ const GenerateReport: React.FC<Props> = () => {
                       <div className="text-sm">
                         <div className="grid grid-cols-2 border-b border-slate-300">
                           <div className="bg-slate-200 p-2 font-bold text-slate-800 text-xs flex items-center">NOME DA LINHA</div>
-                          <div className="p-0.5 flex items-stretch">
+                          <div className="flex items-center justify-center bg-indigo-50/20 p-1">
                             <input
                               type="text"
                               value={item.pdd || ''}
                               onChange={(e) => handlePddChange(idx, e.target.value)}
-                              placeholder="EDITAR..."
-                              className="w-full h-8 px-2 bg-indigo-50/50 border border-indigo-200/50 rounded-sm text-center font-mono text-slate-900 font-black uppercase focus:bg-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none text-[11px] leading-none tracking-tighter transition-all"
+                              placeholder="PDD"
+                              className="w-full h-10 bg-white border border-slate-300 rounded pl-2 text-left font-mono text-slate-900 font-bold uppercase focus:ring-1 focus:ring-indigo-500 outline-none text-[13px] leading-[38px] tracking-tighter"
                               autoComplete="off"
                             />
                           </div>
@@ -487,8 +512,6 @@ const GenerateReport: React.FC<Props> = () => {
       {/* === TAB 2: ANALYTICS REPORT === */}
       {activeTab === 'analytics' && (
         <div className="animate-fade-in space-y-8">
-          
-          {/* Upload Box for Analytics */}
           <div className="max-w-2xl mx-auto">
             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm relative flex flex-col justify-between">
               <div className="text-center">
@@ -513,18 +536,14 @@ const GenerateReport: React.FC<Props> = () => {
             </div>
           </div>
 
-          {/* Results Area */}
           {analyticsStatus === 'success' && analyticsData.length > 0 && (
             <div className="bg-white p-8 rounded-xl border border-slate-200 shadow-sm">
-               
-               {/* Total Big Number */}
                <div className="text-center mb-8">
                   <h3 className="text-2xl font-bold text-slate-500 uppercase tracking-wide">Total Expedido</h3>
                   <p className="text-6xl font-extrabold text-orange-600 mt-2">{totalExpedited.toLocaleString('pt-BR')}</p>
                   <p className="text-sm text-slate-400 mt-2">Pedidos únicos (Filhos e Lotes removidos)</p>
                </div>
 
-               {/* Chart */}
                <div className="h-[400px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
@@ -553,7 +572,6 @@ const GenerateReport: React.FC<Props> = () => {
                   </ResponsiveContainer>
                </div>
 
-               {/* Data Table Preview */}
                <div className="mt-8 border-t border-slate-100 pt-6">
                  <h4 className="font-bold text-slate-700 mb-4">Detalhamento por Base</h4>
                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">

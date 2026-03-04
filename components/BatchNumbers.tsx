@@ -5,12 +5,12 @@ import { BatchNumber } from '../types';
 import { dataService } from '../services/dataService';
 import * as XLSX from 'xlsx';
 
-// Lista exata das 17 bases homologadas da operação SE AJU
+// Lista exata das 19 bases homologadas da operação SE AJU
 const ALLOWED_BASES = [
   'NSS-SE', 'NSG-SE', 'IBN-SE', 'F LAG-SE', 'PRO-SE', 'F EST-SE', 
-  'CDM-SE', 'BUG-SE', 'ARP-AL', 'PMI-AL', 'STI-AL', 'CAL-AL', 
+  'CDM-SE', 'F CDM - SE', 'BUG-SE', 'ARP-AL', 'F ARP - AL', 'PMI-AL', 'STI-AL', 'CAL-AL', 
   'CRP-AL', 'MDC-AL', 'JCN-AL', 'JGA-AL', 'F MCZ-AL'
-];
+].sort((a, b) => b.length - a.length);
 
 interface AnalysisResult {
   base: string;
@@ -151,7 +151,7 @@ const BatchNumbers: React.FC = () => {
       let newFilesCount = filesProcessed + files.length;
 
       // Processar os novos arquivos
-      const results = await Promise.all(Array.from(files).map((file) => processFile(file as File)));
+      const results = await Promise.all(Array.from(files).map((file: File) => processFile(file)));
 
       // Consolidar novos dados aos existentes
       results.forEach(res => {
