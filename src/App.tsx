@@ -1,12 +1,14 @@
+// Updated App.tsx - Removed unused imports
+
 import React from 'react';
-import Trips from './Trips';
-// import SecondaryTrips from './SecondaryTrips'; // Unused import removed
+
+// Removed: import GenerateReport from './GenerateReport';
+// Removed: import SecondaryTrips from './SecondaryTrips';
 
 const App = () => {
     return (
         <div>
-            <h1>Welcome to JForce</h1>
-            <Trips />
+            <h1>Hello, World!</h1>
         </div>
     );
 };
