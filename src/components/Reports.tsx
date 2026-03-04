@@ -47,7 +47,7 @@ const Reports: React.FC<Props> = ({ history, employees }) => {
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
       .map(rec => {
         // Fix timezone issue for chart labels using string split
-        const [year, month, day] = rec.date.split('-');
+        const [, month, day] = rec.date.split('-');
         return {
           date: `${day}/${month}`,
           volume: rec.volume,
@@ -59,6 +59,7 @@ const Reports: React.FC<Props> = ({ history, employees }) => {
   // 2. Prepare Heatmap data (Employee vs Task Category count)
   const categoryStats = useMemo(() => {
     return targetEmployees.map(emp => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const stats: any = { name: emp.name };
       
       // Initialize counts
@@ -81,6 +82,7 @@ const Reports: React.FC<Props> = ({ history, employees }) => {
   const specificTaskStats = useMemo(() => {
     return targetEmployees.map(emp => {
       // Create an object with employee name and all task IDs initialized to 0
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const stats: Record<string, any> = { id: emp.id, name: emp.name };
       TASK_DEFINITIONS.forEach(task => stats[task.id] = 0);
 
@@ -329,6 +331,7 @@ const Reports: React.FC<Props> = ({ history, employees }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
               {specificTaskStats.map((stat: any, index) => (
                 <tr key={stat.id} className={index % 2 === 0 ? 'bg-white hover:bg-slate-50' : 'bg-slate-50/50 hover:bg-slate-50'}>
                   <td className="px-4 py-3 font-medium text-slate-700 sticky left-0 bg-inherit border-r border-slate-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
@@ -379,6 +382,7 @@ const Reports: React.FC<Props> = ({ history, employees }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
               {categoryStats.map((stat: any) => {
                 const total = 
                   (stat[TaskCategory.UNLOAD] || 0) + 

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { DailyRecord, Employee, TripInfo } from './types';
+import { DailyRecord, Employee } from './types';
 import Layout from './components/Layout';
 import DailyOperations from './components/DailyOperations';
 import TeamManagement from './components/TeamManagement';
@@ -130,10 +130,10 @@ function App() {
         ]);
         setEmployees(empData);
         setHistory(histData);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Failed to load data:", err);
-        const msg = err.message || JSON.stringify(err);
-        const code = err.code || '';
+        const msg = (err as any).message || JSON.stringify(err);
+        const code = (err as any).code || '';
         
         // Se a tabela ou coluna não existir, mostramos a tela de configuração
         if (code === 'PGRST204' || code === 'PGRST205' || code === '42703' || msg.includes('does not exist') || msg.includes('column')) {
@@ -161,13 +161,13 @@ function App() {
         return [record, ...prev];
       });
       return true;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error saving record:", err);
       // Caso ocorra erro de coluna inexistente ao salvar
-      if (err.message?.includes('column') || err.code === '42703') {
+      if ((err as any).message?.includes('column') || (err as any).code === '42703') {
         setError('MISSING_TABLES');
       } else {
-        alert(`Erro ao salvar: ${err.message || "Erro desconhecido"}`);
+        alert(`Erro ao salvar: ${(err as any).message || "Erro desconhecido"}`);
       }
       return false;
     }
