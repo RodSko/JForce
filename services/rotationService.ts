@@ -155,7 +155,7 @@ export const calculateAutoRotation = (
   const soltoTask = TASK_DEFINITIONS.find(t => t.category === TaskCategory.SOLTO);
   if (soltoTask) {
     // Edina entra aqui primeiro por ser fixa
-    const leftovers = [];
+    const leftovers: Employee[] = [];
     if (edina) leftovers.push(edina);
     leftovers.push(...poolP1, ...poolP2, ...standardPool);
 
