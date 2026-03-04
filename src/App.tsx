@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { DailyRecord, Employee } from './types.ts';
-import Layout from './components/Layout.tsx';
+import Layout from '@./components/Layout.tsx';
 import DailyOperations from './components/DailyOperations.tsx';
 import TeamManagement from './components/TeamManagement.tsx';
 import Reports from './components/Reports.tsx';
