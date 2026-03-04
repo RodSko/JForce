@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabaseClient';
 import { Employee, DailyRecord, SupplyItem, SupplyTransaction, EpiItem, EpiTransaction, BatchNumber } from '../types';
 
 export const dataService = {

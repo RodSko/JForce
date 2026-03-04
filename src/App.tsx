@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { DailyRecord, Employee } from './types';
-import Layout from './components/Layout';
+import Layout from './components/LayoutComponent';
 import DailyOperations from './components/DailyOperations';
 import TeamManagement from './components/TeamManagement';
 import Reports from './components/Reports';
 import GenerateReport from './components/GenerateReport';
 import ManagementReport from './components/ManagementReport';
 import ShippedNotArrived from './components/ShippedNotArrived';
-import SecondaryTrips from './components/SecondaryTrips';
+import SecondaryTrips from './components/SecondaryTripsComponent';
 import SuppliesControl from './components/SuppliesControl';
 import EpiControl from './components/EpiControl';
 import QrCodeGenerator from './components/QrCodeGenerator';
