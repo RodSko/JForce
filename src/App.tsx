@@ -296,18 +296,14 @@ function App() {
       {view === 'forecast' && (
         <ExpeditionForecast />
       )}
-      {view === 'generate' && (
-        <GenerateReport />
-      )}
+    
       {view === 'management' && (
         <ManagementReport history={history} />
       )}
       {view === 'shipped' && (
         <ShippedNotArrived />
       )}
-      {view === 'secondary' && (
-        <SecondaryTrips />
-      )}
+     
       {view === 'batches' && (
         <BatchNumbers />
       )}
