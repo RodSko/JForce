@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { DailyRecord, Employee, TaskCategory } from '@/types';
-import { TASK_DEFINITIONS } from '@/constants';
+import { DailyRecord, Employee, TaskCategory } from '../types';
+import { TASK_DEFINITIONS } from '../constants';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { Calendar, Filter, Table2, User, Container, Lock, Unlock } from 'lucide-react';
 

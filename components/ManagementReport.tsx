@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2, Loader2, Play, Package, Layers, RefreshCw, Users, Briefcase, UserX, Palmtree, MapPin, Calendar, Clock, Plus, Trash2, Truck, Send, ArrowRight, AlertTriangle, ArrowLeftRight, PackageX, Ban, Copy, Check } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { DailyRecord } from '@/types';
+import { DailyRecord } from '../types';
 
 interface Props {
   history?: DailyRecord[];

@@ -3,10 +3,10 @@ import * as XLSX from 'xlsx';
 import { Upload, FileSpreadsheet, TrendingUp, AlertCircle, CheckCircle2, Loader2, Table, Package, MapPin, BarChart3, RefreshCw, Info, Files } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList } from 'recharts';
 
-// Lista oficial das 19 bases conforme solicitação
-const BASES_SE = ['NSS-SE', 'NSG-SE', 'F-IBN SE', 'F-LAG SE', 'PRO-SE', 'F- EST SE', 'CDM-SE', 'F CDM - SE', 'BUG-SE'];
-const BASES_AL = ['ARP-AL', 'F ARP - AL', 'F ARP 02-AL', 'PMI-AL', 'STI-AL', 'F-MCZ AL', 'CAL-AL', 'CRP-AL', 'MDC-AL', 'JCN-AL', 'JGA-AL'];
-const ALL_ALLOWED_BASES = [...BASES_SE, ...BASES_AL].sort((a, b) => b.length - a.length);
+// Lista oficial das 17 bases conforme solicitação
+const BASES_SE = ['NSS-SE', 'NSG-SE', 'F-IBN SE', 'F-LAG SE', 'PRO-SE', 'F- EST SE', 'CDM-SE', 'BUG-SE'];
+const BASES_AL = ['ARP-AL', 'PMI-AL', 'STI-AL', 'F-MCZ AL', 'CAL-AL', 'CRP-AL', 'MDC-AL', 'JCN-AL', 'JGA-AL'];
+const ALL_ALLOWED_BASES = [...BASES_SE, ...BASES_AL];
 
 interface ForecastResult {
   base: string;
@@ -77,9 +77,7 @@ const ExpeditionForecast: React.FC = () => {
             const normBaseRaw = normalize(baseRaw);
             const matchedBase = ALL_ALLOWED_BASES.find(b => {
               const normAllowed = normalize(b);
-              // Preferência por match exato ou que o termo da planilha contenha a base (ex: "BASE CDM-SE" contém "CDMSE")
-              // Evitamos que "CDM-SE" dê match em "F CDM - SE" invertendo a lógica de inclusão para ser mais restritiva
-              return normBaseRaw === normAllowed || normBaseRaw.includes(normAllowed);
+              return normBaseRaw === normAllowed || normBaseRaw.includes(normAllowed) || normAllowed.includes(normBaseRaw);
             });
 
             if (matchedBase) {
