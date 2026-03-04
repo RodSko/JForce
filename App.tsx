@@ -9,7 +9,6 @@ import SuppliesControl from './components/SuppliesControl';
 import QrCodeGenerator from './components/QrCodeGenerator';
 import BatchNumbers from './components/BatchNumbers';
 import ExpeditionForecast from './components/ExpeditionForecast';
-import GenerateReport from './components/GenerateReport';
 import { dataService } from './services/dataService';
 import { Loader2, AlertTriangle, Database, Copy, Check } from 'lucide-react';
 
@@ -106,7 +105,7 @@ CREATE POLICY "Public Access" ON public.epi_transactions FOR ALL USING (true);
 CREATE POLICY "Public Access" ON public.batch_numbers FOR ALL USING (true);`;
 
 function App() {
-  const [view, setView] = useState<'daily' | 'team' | 'reports' | 'generate' | 'shipped' | 'supplies' | 'epis' | 'qrcode' | 'batches' | 'forecast'>('forecast');
+  const [view, setView] = useState<'daily' | 'team' | 'reports' | 'shipped' | 'supplies' | 'epis' | 'qrcode' | 'batches' | 'forecast'>('forecast');
   
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [history, setHistory] = useState<DailyRecord[]>([]);
@@ -297,9 +296,6 @@ function App() {
       )}
       {view === 'qrcode' && (
         <QrCodeGenerator />
-      )}
-      {view === 'generate' && (
-        <GenerateReport />
       )}
     </Layout>
   );
