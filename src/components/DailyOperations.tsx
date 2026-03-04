@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { DailyRecord, Employee, Assignment, TripInfo } from '../types';
-import { TASK_DEFINITIONS } from '../constants';
-import AssignmentCard from './AssignmentCard';
+import { DailyRecord, Employee, Assignment, TripInfo } from '../types.ts';
+import { TASK_DEFINITIONS } from '../constants.ts';
+import AssignmentCard from './AssignmentCard.tsx';
 import { Save, Calendar, Unlock, Lock, Container, Trash2, RefreshCw, Info, Loader2, ImageDown, Plus, BarChart3 } from 'lucide-react';
 import { calculateAutoRotation } from '../services/rotationService';
 import html2canvas from 'html2canvas';
