@@ -1,14 +1,13 @@
-
 import React, { useState, useEffect } from 'react';
-import { DailyRecord, Employee, TripInfo } from './types';
-import Layout from './components/Layout';
+import { DailyRecord, Employee } from './types';
+import Layout from './components/LayoutComponent';
 import DailyOperations from './components/DailyOperations';
 import TeamManagement from './components/TeamManagement';
 import Reports from './components/Reports';
 import GenerateReport from './components/GenerateReport';
 import ManagementReport from './components/ManagementReport';
 import ShippedNotArrived from './components/ShippedNotArrived';
-import SecondaryTrips from './components/SecondaryTrips';
+import SecondaryTrips from './components/SecondaryTripsComponent';
 import SuppliesControl from './components/SuppliesControl';
 import EpiControl from './components/EpiControl';
 import QrCodeGenerator from './components/QrCodeGenerator';
@@ -130,10 +129,12 @@ function App() {
         ]);
         setEmployees(empData);
         setHistory(histData);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Failed to load data:", err);
-        const msg = err.message || JSON.stringify(err);
-        const code = err.code || '';
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const msg = (err as any).message || JSON.stringify(err);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const code = (err as any).code || '';
         
         // Se a tabela ou coluna não existir, mostramos a tela de configuração
         if (code === 'PGRST204' || code === 'PGRST205' || code === '42703' || msg.includes('does not exist') || msg.includes('column')) {
@@ -161,13 +162,15 @@ function App() {
         return [record, ...prev];
       });
       return true;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error saving record:", err);
       // Caso ocorra erro de coluna inexistente ao salvar
-      if (err.message?.includes('column') || err.code === '42703') {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if ((err as any).message?.includes('column') || (err as any).code === '42703') {
         setError('MISSING_TABLES');
       } else {
-        alert(`Erro ao salvar: ${err.message || "Erro desconhecido"}`);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        alert(`Erro ao salvar: ${(err as any).message || "Erro desconhecido"}`);
       }
       return false;
     }

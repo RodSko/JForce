@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Box, Plus, Search, Filter, ArrowUpRight, ArrowDownLeft, FileText, AlertTriangle, History, Package, User, Calendar, Trash2, Save, X, Pencil, Settings, Loader2, BarChart3, AlertCircle } from 'lucide-react';
+import { Box, Plus, Search, ArrowUpRight, ArrowDownLeft, AlertTriangle, History, Package, User, Trash2, Pencil, Loader2, BarChart3 } from 'lucide-react';
 import { SupplyItem, SupplyTransaction } from '../types';
 import { dataService } from '../services/dataService';
 
@@ -190,9 +190,10 @@ const SuppliesControl: React.FC = () => {
       setSupplies(prev => prev.filter(s => s.id !== itemToDelete.id));
       await loadData(); // Reload for safety
       setItemToDelete(null);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Erro delete:", error);
-      alert(`Erro: ${error.message}`);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      alert(`Erro: ${(error as any).message}`);
     } finally {
       setDeletingId(null);
     }

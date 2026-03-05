@@ -5,9 +5,7 @@ import { Upload, FileSpreadsheet, FileText, AlertCircle, CheckCircle2, Printer, 
 import * as XLSX from 'xlsx';
 import { Document, Packer, Paragraph, Table, TableCell, TableRow, WidthType, BorderStyle, TextRun, AlignmentType, VerticalAlign, PageOrientation, ImageRun } from 'docx';
 import html2canvas from 'html2canvas';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList, Cell } from 'recharts';
-
-interface Props {}
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList } from 'recharts';
 
 interface ReportItem {
   pdd: string;
@@ -24,7 +22,7 @@ interface AnalyticsData {
   count: number;
 }
 
-const GenerateReport: React.FC<Props> = () => {
+const GenerateReport: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'visual' | 'analytics'>('visual');
 
   // --- STATES FOR VISUAL REPORT ---
@@ -48,6 +46,7 @@ const GenerateReport: React.FC<Props> = () => {
   const [totalExpedited, setTotalExpedited] = useState<number>(0);
 
   // --- SHARED HELPERS ---
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const findColumnName = (row: any, possibleNames: string[]): string | undefined => {
     if (!row) return undefined;
     const keys = Object.keys(row);
@@ -134,6 +133,7 @@ const GenerateReport: React.FC<Props> = () => {
         const firstSheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[firstSheetName];
         
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const jsonData = XLSX.utils.sheet_to_json<any>(worksheet, { defval: "" });
 
         if (!jsonData || jsonData.length === 0) {
@@ -142,6 +142,7 @@ const GenerateReport: React.FC<Props> = () => {
 
         const processedReportItems: ReportItem[] = [];
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         jsonData.forEach((row: any) => {
           const idViagem = row['Tarefa de transporte No.'] || row['ID Viagem'] || row['Trip ID'];
           const pddChegada = row['PDD de chegada'] || row['Destino'] || '';
@@ -180,10 +181,11 @@ const GenerateReport: React.FC<Props> = () => {
         
         if (fileInputRef.current) fileInputRef.current.value = '';
 
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Erro no processamento:", err);
         setImportStatus('error');
-        setStatusMessage(err.message || "Erro ao processar arquivo.");
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        setStatusMessage((err as any).message || "Erro ao processar arquivo.");
       }
     };
 
@@ -212,6 +214,7 @@ const GenerateReport: React.FC<Props> = () => {
         const data = e.target?.result;
         const workbook = XLSX.read(data, { type: 'binary' });
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const jsonData = XLSX.utils.sheet_to_json<any>(sheet, { defval: "" });
 
         if (!jsonData || jsonData.length === 0) throw new Error("Planilha vazia.");
@@ -260,10 +263,11 @@ const GenerateReport: React.FC<Props> = () => {
 
         if (analyticsInputRef.current) analyticsInputRef.current.value = '';
 
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error(err);
         setAnalyticsStatus('error');
-        alert(err.message || "Erro ao processar planilha.");
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        alert((err as any).message || "Erro ao processar planilha.");
       }
     };
     reader.readAsBinaryString(file);
@@ -287,7 +291,7 @@ const GenerateReport: React.FC<Props> = () => {
       link.href = image;
       link.download = `Relatorio_Visual_${opDate}.png`;
       link.click();
-    } catch (err) { alert("Não foi possível gerar a imagem."); }
+    } catch { alert("Não foi possível gerar a imagem."); }
   };
 
   const dataUrlToArrayBuffer = async (dataUrl: string) => {
@@ -299,8 +303,10 @@ const GenerateReport: React.FC<Props> = () => {
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet([]);
     const CARDS_PER_ROW = 4;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const grid: any[][] = [];
     const newMerges: XLSX.Range[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const setGridCell = (r: number, c: number, val: any) => {
       if (!grid[r]) grid[r] = [];
       grid[r][c] = val;
@@ -335,13 +341,16 @@ const GenerateReport: React.FC<Props> = () => {
 
     for (let i = 0; i < reportData.length; i++) {
       const item = reportData[i];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let photoChildren: any[] = [new Paragraph({ children: [new TextRun({ text: "FOTO DO VEÍCULO", bold: true, size: 20, color: "CCCCCC" })], alignment: AlignmentType.CENTER })];
 
       if (vehiclePhotos[item.id]) {
         try {
           const imageBuffer = await dataUrlToArrayBuffer(vehiclePhotos[item.id]);
           photoChildren = [new Paragraph({ children: [new ImageRun({ data: imageBuffer, transformation: { width: 250, height: 150 } })], alignment: AlignmentType.CENTER })];
-        } catch (e) {}
+        } catch {
+            // ignore
+        }
       }
 
       const cardTable = new Table({

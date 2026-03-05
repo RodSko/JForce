@@ -30,10 +30,11 @@ const TeamManagement: React.FC<Props> = ({ employees, onAddEmployee, onUpdateEmp
       };
       await onAddEmployee(newEmp);
       setNewName('');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error adding employee:", error);
       // Mostramos o erro detalhado para ajudar no diagnóstico
-      const errorDetail = error.message || (error.error_description) || JSON.stringify(error);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const errorDetail = (error as any).message || ((error as any).error_description) || JSON.stringify(error);
       alert(`ERRO AO ADICIONAR:\n${errorDetail}\n\nNota: Certifique-se de que a coluna 'gender' existe na sua tabela 'employees' do Supabase.`);
     } finally {
       setLoading(false);
@@ -43,8 +44,9 @@ const TeamManagement: React.FC<Props> = ({ employees, onAddEmployee, onUpdateEmp
   const toggleStatus = async (emp: Employee) => {
     try {
       await onUpdateEmployee({ ...emp, active: !emp.active });
-    } catch (error: any) {
-      alert(`Erro ao atualizar status: ${error.message}`);
+    } catch (error: unknown) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      alert(`Erro ao atualizar status: ${(error as any).message}`);
     }
   };
 
@@ -64,9 +66,10 @@ const TeamManagement: React.FC<Props> = ({ employees, onAddEmployee, onUpdateEmp
           gender: editGenderValue 
         });
         setEditingId(null);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Error updating employee:", error);
-        alert(`ERRO AO SALVAR:\n${error.message}`);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        alert(`ERRO AO SALVAR:\n${(error as any).message}`);
       } finally {
         setLoading(false);
       }
@@ -83,9 +86,10 @@ const TeamManagement: React.FC<Props> = ({ employees, onAddEmployee, onUpdateEmp
     try {
       await onDeleteEmployee(itemToDelete.id);
       setItemToDelete(null);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error deleting employee:", error);
-      alert(`Erro ao excluir: ${error.message}`);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      alert(`Erro ao excluir: ${(error as any).message}`);
     } finally {
       setLoading(false);
     }

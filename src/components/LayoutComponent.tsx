@@ -1,6 +1,8 @@
-
 import React from 'react';
-import { LayoutDashboard, Users, BarChart3, Boxes, FileText, Truck, ClipboardList, Map, Box, QrCode, HardHat, Hash, TrendingUp } from 'lucide-react';
+import { 
+  Boxes, FileText, Truck, ClipboardList, Map, Box, 
+  QrCode, HardHat, Hash, TrendingUp, Users, BarChart3, PieChart 
+} from 'lucide-react';
 
 type View = 'daily' | 'team' | 'reports' | 'generate' | 'shipped' | 'management' | 'secondary' | 'supplies' | 'epis' | 'qrcode' | 'batches' | 'forecast';
 
@@ -12,18 +14,18 @@ interface Props {
 
 const Layout: React.FC<Props> = ({ currentView, onChangeView, children }) => {
   const navItems = [
-    { id: 'daily', label: 'Operação Diária', icon: LayoutDashboard },
-    { id: 'reports', label: 'Relatórios & Métricas', icon: BarChart3 },
+    { id: 'daily', label: 'Escala Diária', icon: ClipboardList },
+    { id: 'team', label: 'Gestão de Equipe', icon: Users },
+    { id: 'reports', label: 'Relatórios de Produtividade', icon: BarChart3 },
+    { id: 'management', label: 'Relatório Gerencial', icon: PieChart },
     { id: 'forecast', label: 'Previsão de Expedição', icon: TrendingUp },
     { id: 'generate', label: 'Gerar Report Carregamento', icon: FileText },
-    { id: 'management', label: 'Gerar Report Gestão', icon: ClipboardList },
     { id: 'shipped', label: 'Expedido Mas Não Chegou', icon: Truck },
     { id: 'secondary', label: 'Viagens Secundárias', icon: Map },
     { id: 'batches', label: 'Números de Lotes', icon: Hash },
     { id: 'supplies', label: 'Controle de Insumos', icon: Box },
     { id: 'epis', label: 'Controle de EPIs', icon: HardHat },
     { id: 'qrcode', label: 'Gerar Qr Code', icon: QrCode },
-    { id: 'team', label: 'Equipe', icon: Users },
   ] as const;
 
   return (

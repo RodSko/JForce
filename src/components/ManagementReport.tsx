@@ -14,6 +14,7 @@ interface ManagementTrip {
 }
 
 // Helper para encontrar nomes de colunas variados
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const findColumnName = (row: any, possibleNames: string[]): string | undefined => {
   if (!row) return undefined;
   const keys = Object.keys(row);
@@ -25,6 +26,7 @@ const findColumnName = (row: any, possibleNames: string[]): string | undefined =
 };
 
 // Helper para ler arquivo Excel
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const readFile = (file: File): Promise<any[]> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -38,6 +40,7 @@ const readFile = (file: File): Promise<any[]> => {
         }
         const firstSheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[firstSheetName];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const jsonData = XLSX.utils.sheet_to_json<any>(worksheet, { defval: "" });
         resolve(jsonData);
       } catch (error) {
@@ -197,6 +200,7 @@ const ManagementReport: React.FC<Props> = ({ history = [] }) => {
       let countMultiples = 0; // Total de pedidos
       let countProcessed = 0; // Pedidos Pai (sem hífen)
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       processedData.forEach((row: any) => {
         const rawId = row[processedCol];
         if (rawId) {
@@ -219,6 +223,7 @@ const ManagementReport: React.FC<Props> = ({ history = [] }) => {
         const shippedBaseCol = findColumnName(shippedData[0], ['Parada anterior ou próxima', 'Parada anterior ou proxima', 'Next Stop', 'Parada', 'Destino']);
         
         if (shippedOrderCol) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           shippedData.forEach((row: any) => {
              const rawId = row[shippedOrderCol];
              if (rawId) {
@@ -263,10 +268,11 @@ const ManagementReport: React.FC<Props> = ({ history = [] }) => {
       setStatus('success');
       setMessage('Análise concluída com sucesso!');
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
       setStatus('error');
-      setMessage(err.message || 'Erro ao processar arquivos.');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setMessage((err as any).message || 'Erro ao processar arquivos.');
     }
   };
 

@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabaseClient';
 import { Employee, DailyRecord, SupplyItem, SupplyTransaction, EpiItem, EpiTransaction, BatchNumber } from '../types';
 
 export const dataService = {
@@ -73,6 +73,7 @@ export const dataService = {
     
     if (error) throw error;
     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (data || []).map((record: any) => ({
       id: record.id,
       date: record.date,
@@ -110,6 +111,7 @@ export const dataService = {
     
     if (error) throw error;
     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (data || []).map((item: any) => ({
       id: item.id,
       name: item.name,
@@ -152,6 +154,7 @@ export const dataService = {
     
     if (error) throw error;
     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (data || []).map((item: any) => ({
       id: item.id,
       supplyId: item.supply_id,
@@ -189,6 +192,7 @@ export const dataService = {
     
     if (error) throw error;
     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (data || []).map((item: any) => ({
       id: item.id,
       name: item.name,
@@ -231,6 +235,7 @@ export const dataService = {
     
     if (error) throw error;
     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (data || []).map((item: any) => ({
       id: item.id,
       epiId: item.epi_id,

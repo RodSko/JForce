@@ -20,7 +20,6 @@ const AssignmentCard: React.FC<Props> = ({ task, assignments, employees, onAssig
     }
   };
 
-  // Correção: Apenas considerar atribuições com employeeId válido (não vazio)
   const currentTaskAssignments = assignments.filter(a => a.taskId === task.id && a.employeeId);
   const assignedEmployeeIds = new Set(assignments.filter(a => a.employeeId).map(a => a.employeeId));
   const isSolto = task.category === TaskCategory.SOLTO;

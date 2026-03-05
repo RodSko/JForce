@@ -1,4 +1,4 @@
-import { Employee, TaskDefinition, DailyRecord, Assignment, TaskCategory } from '../types';
+import { Employee, DailyRecord, Assignment, TaskCategory } from '../types';
 import { TASK_DEFINITIONS } from '../constants';
 
 /**
@@ -118,7 +118,7 @@ export const calculateAutoRotation = (
     let chosen: Employee | null = null;
 
     for (const bucket of priorityBuckets) {
-      let candidates = bucket.filter(emp => {
+      const candidates = bucket.filter(emp => {
         // Restrição de Gênero para Descarga e Virada
         if ((slot.category === TaskCategory.TURN || slot.category === TaskCategory.UNLOAD) && emp.gender === 'F') return false;
         
@@ -155,7 +155,7 @@ export const calculateAutoRotation = (
   const soltoTask = TASK_DEFINITIONS.find(t => t.category === TaskCategory.SOLTO);
   if (soltoTask) {
     // Edina entra aqui primeiro por ser fixa
-    const leftovers = [];
+    const leftovers: Employee[] = [];
     if (edina) leftovers.push(edina);
     leftovers.push(...poolP1, ...poolP2, ...standardPool);
 

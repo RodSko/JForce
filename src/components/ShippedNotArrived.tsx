@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
-import { Upload, FileSpreadsheet, Filter, Download, Settings2, CheckCircle2, AlertCircle, ArrowRight, RefreshCw, Search, ListFilter, GitCompare, ArrowRightLeft } from 'lucide-react';
+import { Upload, FileSpreadsheet, Filter, Download, Settings2, CheckCircle2, AlertCircle, RefreshCw, Search, ListFilter, GitCompare, ArrowRightLeft } from 'lucide-react';
 
 interface ProcessLog {
   step: string;
@@ -14,6 +14,7 @@ const ShippedNotArrived: React.FC = () => {
 
   // --- STATE MODO SINGLE (Existente) ---
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [dataset, setDataset] = useState<any[]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
   const [fileName, setFileName] = useState<string>('');
@@ -29,6 +30,7 @@ const ShippedNotArrived: React.FC = () => {
   
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [logs, setLogs] = useState<ProcessLog[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [filteredData, setFilteredData] = useState<any[]>([]);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -37,19 +39,24 @@ const ShippedNotArrived: React.FC = () => {
   const file2Ref = useRef<HTMLInputElement>(null);
   const [file1Name, setFile1Name] = useState('');
   const [file2Name, setFile2Name] = useState('');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [data1, setData1] = useState<any[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [data2, setData2] = useState<any[]>([]);
   const [crossStatus, setCrossStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [crossResult, setCrossResult] = useState<any[]>([]);
   const [crossMessage, setCrossMessage] = useState('');
 
   // --- FUNÇÕES UTILITÁRIAS ---
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const cleanValue = (val: any): string => {
     if (val === null || val === undefined) return '';
     return String(val).trim().replace(/\s+/g, ' ').toUpperCase();
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const findColumn = (row: any, candidates: string[]): string => {
     if (!row) return '';
     const keys = Object.keys(row);
@@ -98,6 +105,7 @@ const ShippedNotArrived: React.FC = () => {
         const bstr = evt.target?.result;
         const wb = XLSX.read(bstr, { type: 'binary' });
         const ws = wb.Sheets[wb.SheetNames[0]];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const data = XLSX.utils.sheet_to_json<any>(ws, { defval: "" });
         
         if (data.length > 0) {
@@ -120,7 +128,7 @@ const ShippedNotArrived: React.FC = () => {
   const handleProcess = () => {
     if (!dataset.length) return;
     
-    const missingCols = [];
+    const missingCols: string[] = [];
     if (!colMapping.time) missingCols.push("Tempo de digitalização");
     if (!colMapping.order) missingCols.push("Número de pedido JMS");
     if (!colMapping.base) missingCols.push("Base de escaneamento");
@@ -153,6 +161,7 @@ const ShippedNotArrived: React.FC = () => {
 
     // 2. Deduplicate
     const seenOrders = new Set();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const uniqueData: any[] = [];
     currentData.forEach(row => {
       const orderId = cleanValue(row[colMapping.order]);
@@ -210,6 +219,7 @@ const ShippedNotArrived: React.FC = () => {
 
   // --- LÓGICA MODO CROSS (Novo) ---
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const readExcel = (file: File): Promise<any[]> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -611,6 +621,7 @@ const ShippedNotArrived: React.FC = () => {
                    <tbody className="divide-y divide-slate-200">
                      {crossResult.slice(0, 100).map((row, idx) => (
                        <tr key={idx} className="hover:bg-slate-100">
+                         {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                          {Object.values(row).map((val: any, vIdx) => (
                            <td key={vIdx} className="px-4 py-2 text-slate-700">{val}</td>
                          ))}

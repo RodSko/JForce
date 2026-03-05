@@ -1,12 +1,12 @@
 import React, { useState, useRef, useMemo } from 'react';
 import * as XLSX from 'xlsx';
-import { Upload, FileSpreadsheet, TrendingUp, AlertCircle, CheckCircle2, Loader2, Table, Package, MapPin, BarChart3, RefreshCw, Info, Files } from 'lucide-react';
+import { FileSpreadsheet, TrendingUp, AlertCircle, Loader2, Table, Package, MapPin, BarChart3, RefreshCw, Files } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList } from 'recharts';
 
-// Lista oficial das 19 bases conforme solicitação
-const BASES_SE = ['NSS-SE', 'NSG-SE', 'F-IBN SE', 'F-LAG SE', 'PRO-SE', 'F- EST SE', 'CDM-SE', 'F CDM - SE', 'BUG-SE'];
-const BASES_AL = ['ARP-AL', 'F ARP - AL', 'PMI-AL', 'STI-AL', 'F-MCZ AL', 'CAL-AL', 'CRP-AL', 'MDC-AL', 'JCN-AL', 'JGA-AL'];
-const ALL_ALLOWED_BASES = [...BASES_SE, ...BASES_AL].sort((a, b) => b.length - a.length);
+// Lista oficial das 20 bases conforme solicitação
+const BASES_SE = ['NSS-SE', 'NSG-SE', 'IBN-SE', 'F IBN-SE', 'F LAG-SE', 'PRO-SE', 'F EST-SE', 'CDM-SE', 'F CDM - SE', 'BUG-SE'];
+const BASES_AL = ['ARP-AL', 'F ARP - AL', 'F ARP 02-AL', 'PMI-AL', 'STI-AL', 'CAL-AL', 'CRP-AL', 'MDC-AL', 'JCN-AL', 'JGA-AL', 'F MCZ-AL'];
+const ALL_ALLOWED_BASES = [...BASES_SE, ...BASES_AL];
 
 interface ForecastResult {
   base: string;
@@ -20,7 +20,6 @@ const ExpeditionForecast: React.FC = () => {
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [processedResults, setProcessedResults] = useState<ForecastResult[]>([]);
-  const [debug, setDebug] = useState<{cols: string[], rowsRead: number}>({cols: [], rowsRead: 0});
 
   // Normalização agressiva para garantir o "match"
   const normalize = (str: string) => {
@@ -48,6 +47,7 @@ const ExpeditionForecast: React.FC = () => {
           const bstr = evt.target?.result;
           const wb = XLSX.read(bstr, { type: 'binary' });
           const ws = wb.Sheets[wb.SheetNames[0]];
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const jsonData = XLSX.utils.sheet_to_json<any>(ws, { defval: "" });
           
           if (jsonData.length === 0) {
@@ -77,10 +77,12 @@ const ExpeditionForecast: React.FC = () => {
             const normBaseRaw = normalize(baseRaw);
             const matchedBase = ALL_ALLOWED_BASES.find(b => {
               const normAllowed = normalize(b);
-              // Preferência por match exato ou que o termo da planilha contenha a base (ex: "BASE CDM-SE" contém "CDMSE")
-              // Evitamos que "CDM-SE" dê match em "F CDM - SE" invertendo a lógica de inclusão para ser mais restritiva
-              return normBaseRaw === normAllowed || normBaseRaw.includes(normAllowed);
+              return normBaseRaw === normAllowed;
             });
+            
+            if (!matchedBase && baseRaw) {
+              console.log('Unmatched base:', baseRaw, 'Normalized:', normBaseRaw);
+            }
 
             if (matchedBase) {
               uniqueOrders.add(orderId);
@@ -108,19 +110,13 @@ const ExpeditionForecast: React.FC = () => {
     
     try {
       // Fix: Explicitly type 'file' as File to resolve TypeScript 'unknown' error
-      const allFilePromises = Array.from(files).map((file: File) => processSingleFile(file));
+      const allFilePromises = Array.from(files).map((file) => processSingleFile(file as File));
       const resultsArray = await Promise.all(allFilePromises);
 
       const globalCounts: Record<string, number> = {};
       const globalUniqueOrders = new Set<string>();
-      let totalRowsRead = 0;
-      let lastHeaders: string[] = [];
 
       resultsArray.forEach(res => {
-        totalRowsRead += res.totalRows;
-        lastHeaders = res.headers;
-        
-        // Somar os counts de cada base
         Object.entries(res.counts).forEach(([base, count]) => {
           // Fix: Cast count to number to avoid 'unknown' type errors in arithmetic
           const numCount = count as number;
@@ -132,7 +128,7 @@ const ExpeditionForecast: React.FC = () => {
       });
 
       if (globalUniqueOrders.size === 0) {
-        throw new Error("Nenhum pedido das 17 bases homologadas foi encontrado nos arquivos enviados.");
+        throw new Error("Nenhum pedido das 20 bases homologadas foi encontrado nos arquivos enviados.");
       }
 
       const finalResults: ForecastResult[] = Object.entries(globalCounts).map(([base, count]) => {
@@ -145,13 +141,13 @@ const ExpeditionForecast: React.FC = () => {
         };
       }).sort((a, b) => b.count - a.count);
 
-      setDebug({ cols: lastHeaders, rowsRead: totalRowsRead });
       setProcessedResults(finalResults);
       setStatus('success');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
       setStatus('error');
-      setErrorMessage(err.message || "Erro ao processar os arquivos.");
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setErrorMessage((err as any).message || "Erro ao processar os arquivos.");
     }
   };
 

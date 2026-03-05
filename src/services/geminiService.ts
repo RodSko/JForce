@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { Employee, TaskDefinition, DailyRecord } from '../types';
+import { Employee, DailyRecord } from '../types';
 import { TASK_DEFINITIONS } from '../constants';
 
 export const generateScheduleSuggestion = async (
@@ -82,7 +82,7 @@ export const generateScheduleSuggestion = async (
       }
     });
 
-    return JSON.parse(response.text);
+    return JSON.parse(response.text || '{}');
   } catch (error) {
     console.error("Gemini API Error:", error);
     throw error;

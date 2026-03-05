@@ -1,15 +1,15 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Hash, Search, Plus, Trash2, Upload, FileSpreadsheet, Loader2, AlertTriangle, CheckCircle2, RefreshCw, BarChart2, PackageCheck, Info, MapPin, ListChecks, ArrowRight, FilterX, Files, Eraser } from 'lucide-react';
+import { Search, Plus, Trash2, Loader2, AlertTriangle, CheckCircle2, RefreshCw, MapPin, FilterX, Files, Eraser, Hash } from 'lucide-react';
 import { BatchNumber } from '../types';
 import { dataService } from '../services/dataService';
 import * as XLSX from 'xlsx';
 
-// Lista exata das 19 bases homologadas da operação SE AJU
+// Lista exata das 20 bases homologadas da operação SE AJU
 const ALLOWED_BASES = [
-  'NSS-SE', 'NSG-SE', 'IBN-SE', 'F LAG-SE', 'PRO-SE', 'F EST-SE', 
-  'CDM-SE', 'F CDM - SE', 'BUG-SE', 'ARP-AL', 'F ARP - AL', 'PMI-AL', 'STI-AL', 'CAL-AL', 
-  'CRP-AL', 'MDC-AL', 'JCN-AL', 'JGA-AL', 'F MCZ-AL'
+  'NSS-SE', 'NSG-SE', 'IBN-SE', 'F IBN-SE', 'F LAG-SE', 'PRO-SE', 'F EST-SE', 
+  'CDM-SE', 'F CDM - SE', 'BUG-SE', 'ARP-AL', 'F ARP - AL', 'F ARP 02-AL',
+  'PMI-AL', 'STI-AL', 'CAL-AL', 'CRP-AL', 'MDC-AL', 'JCN-AL', 'JGA-AL', 'F MCZ-AL'
 ].sort((a, b) => b.length - a.length);
 
 interface AnalysisResult {
@@ -56,13 +56,21 @@ const BatchNumbers: React.FC = () => {
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const cleanValue = (val: any): string => {
     if (val === null || val === undefined) return '';
     return String(val).trim().toUpperCase();
   };
 
-  const normalize = (str: string) => str.replace(/\s+/g, '').toUpperCase();
+  const normalize = (str: string) => {
+    if (!str) return '';
+    return str.toString().toUpperCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^A-Z0-9]/g, "");
+  };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const findColumn = (row: any, candidates: string[]): string => {
     if (!row) return '';
     const keys = Object.keys(row);
@@ -86,6 +94,7 @@ const BatchNumbers: React.FC = () => {
           const data = e.target?.result;
           const workbook = XLSX.read(data, { type: 'binary' });
           const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const jsonData = XLSX.utils.sheet_to_json<any>(sheet, { defval: "" });
 
           if (jsonData.length === 0) {
@@ -93,37 +102,45 @@ const BatchNumbers: React.FC = () => {
             return;
           }
 
-          const colOrder = findColumn(jsonData[0], ['número de pedido jms', 'numero de pedido jms', 'pedido', 'order id', 'jms', 'referencia']);
-          const colBase = findColumn(jsonData[0], ['base destino', 'destino', 'base de destino', 'parada anterior ou próxima', 'parada anterior ou proxima', 'base', 'parada']);
+          const headers = Object.keys(jsonData[0]);
+          console.log('Detected headers:', headers);
+          const colOrder = findColumn(headers, ['número de pedido jms', 'numero de pedido jms', 'pedido', 'order id', 'jms', 'referencia']);
+          const colBase = findColumn(headers, ['base destino', 'destino', 'base de destino', 'parada anterior ou próxima', 'parada anterior ou proxima', 'base', 'parada']);
+
+          console.log('Detected colOrder:', colOrder, 'Detected colBase:', colBase);
 
           const baseCounts: Record<string, number> = {};
           const validOrders = new Set<string>();
           let ignoredCount = 0;
 
           if (!colOrder || !colBase) {
+             console.log('Failed to detect necessary columns.');
              resolve({ baseCounts: {}, validOrders: new Set(), ignoredCount: 0 });
              return;
           }
 
           jsonData.forEach(row => {
             const orderId = cleanValue(row[colOrder]);
-            let baseNameRaw = cleanValue(row[colBase]) || '';
+            const baseNameRaw = cleanValue(row[colBase]) || '';
             
             if (!orderId) return;
 
             const normalizedInput = normalize(baseNameRaw);
             const matchedBase = ALLOWED_BASES.find(b => {
               const normalizedAllowed = normalize(b);
-              return normalizedInput.includes(normalizedAllowed);
+              return normalizedInput === normalizedAllowed;
             });
+            
+            if (!matchedBase && baseNameRaw) {
+              console.log('Unmatched base:', baseNameRaw, 'Normalized:', normalizedInput);
+            }
 
-            if (!orderId.includes('-') && !orderId.startsWith('BR')) {
-              if (matchedBase) {
-                validOrders.add(orderId);
-                baseCounts[matchedBase] = (baseCounts[matchedBase] || 0) + 1;
-              } else {
-                ignoredCount++;
-              }
+            // Removido filtro de hifen para contar todos os pedidos
+            if (matchedBase) {
+              validOrders.add(orderId);
+              baseCounts[matchedBase] = (baseCounts[matchedBase] || 0) + 1;
+            } else {
+              ignoredCount++;
             }
           });
 
@@ -148,10 +165,10 @@ const BatchNumbers: React.FC = () => {
       const newBaseCounts = { ...cumulativeBaseCounts };
       const newValidOrders = new Set(cumulativeValidOrders);
       let newIgnoredCount = cumulativeIgnoredCount;
-      let newFilesCount = filesProcessed + files.length;
+      const newFilesCount = filesProcessed + files.length;
 
       // Processar os novos arquivos
-      const results = await Promise.all(Array.from(files).map((file: File) => processFile(file)));
+      const results = await Promise.all(Array.from(files).map((file) => processFile(file as File)));
 
       // Consolidar novos dados aos existentes
       results.forEach(res => {
@@ -222,7 +239,7 @@ const BatchNumbers: React.FC = () => {
       setShowAddModal(false);
       setNewNumber('');
       setNewDesc('');
-    } catch (error) {
+    } catch {
       alert("Erro ao salvar o lote.");
     } finally {
       setProcessing(false);
@@ -236,7 +253,7 @@ const BatchNumbers: React.FC = () => {
       await dataService.deleteBatchNumber(itemToDelete.id);
       await loadBatches();
       setItemToDelete(null);
-    } catch (error) {
+    } catch {
       alert("Erro ao excluir.");
     } finally {
       setProcessing(false);
@@ -257,7 +274,7 @@ const BatchNumbers: React.FC = () => {
           Dimensionamento Acumulativo de Lotes
         </h2>
         <p className="text-slate-300 max-w-xl font-medium">
-          Soma automática de múltiplas planilhas para as 17 bases homologadas. (Limite: 80 pedidos/lote)
+          Soma automática de múltiplas planilhas para as 20 bases homologadas. (Limite: 80 pedidos/lote)
         </p>
       </div>
 
@@ -303,7 +320,7 @@ const BatchNumbers: React.FC = () => {
                <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100 flex items-center gap-3">
                   <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
                   <p className="text-[10px] text-emerald-800 font-bold leading-tight">
-                    Soma ativa. Novos arquivos adicionados serão somados ao total acima mantendo a regra das 17 bases.
+                    Soma ativa. Novos arquivos adicionados serão somados ao total acima mantendo a regra das 20 bases.
                   </p>
                </div>
             </div>
@@ -337,7 +354,7 @@ const BatchNumbers: React.FC = () => {
               {analysisResults.length === 0 && (
                 <div className="col-span-full py-16 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300">
                   <FilterX className="w-10 h-10 mx-auto mb-3 text-slate-300" />
-                  <p className="text-slate-500 font-bold uppercase text-xs">Aguardando dados das 17 bases homologadas.</p>
+                  <p className="text-slate-500 font-bold uppercase text-xs">Aguardando dados das 20 bases homologadas.</p>
                 </div>
               )}
             </div>
