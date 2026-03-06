@@ -71,9 +71,9 @@ const BatchNumbers: React.FC = () => {
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const findColumn = (row: any, candidates: string[]): string => {
-    if (!row) return '';
-    const keys = Object.keys(row);
+  const findColumn = (data: any, candidates: string[]): string => {
+    if (!data) return '';
+    const keys = Array.isArray(data) ? data : Object.keys(data);
     for (const name of candidates) {
       const found = keys.find(k => normalize(k) === normalize(name));
       if (found) return found;
@@ -104,8 +104,12 @@ const BatchNumbers: React.FC = () => {
 
           const headers = Object.keys(jsonData[0]);
           console.log('Detected headers:', headers);
-          const colOrder = findColumn(headers, ['número de pedido jms', 'numero de pedido jms', 'pedido', 'order id', 'jms', 'referencia']);
-          const colBase = findColumn(headers, ['base destino', 'destino', 'base de destino', 'parada anterior ou próxima', 'parada anterior ou proxima', 'base', 'parada']);
+          
+          const orderCandidates = ['número de pedido jms', 'numero de pedido jms', 'pedido', 'order id', 'jms', 'referencia', 'id pedido', 'order'];
+          const baseCandidates = ['base destino', 'destino', 'base de destino', 'parada anterior ou próxima', 'parada anterior ou proxima', 'base', 'parada', 'unidade destino', 'proxima parada'];
+
+          const colOrder = findColumn(headers, orderCandidates);
+          const colBase = findColumn(headers, baseCandidates);
 
           console.log('Detected colOrder:', colOrder, 'Detected colBase:', colBase);
 
@@ -114,8 +118,10 @@ const BatchNumbers: React.FC = () => {
           let ignoredCount = 0;
 
           if (!colOrder || !colBase) {
-             console.log('Failed to detect necessary columns.');
-             resolve({ baseCounts: {}, validOrders: new Set(), ignoredCount: 0 });
+             const missing = [];
+             if (!colOrder) missing.push("Pedido/JMS");
+             if (!colBase) missing.push("Base/Destino");
+             reject(new Error(`Colunas obrigatórias não encontradas: ${missing.join(', ')}. Verifique os cabeçalhos da planilha.`));
              return;
           }
 
@@ -206,9 +212,9 @@ const BatchNumbers: React.FC = () => {
       setAnalysisResults(finalResults);
       setShowAnalysis(true);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert("Erro ao processar arquivos.");
+      alert(error.message || "Erro ao processar arquivos.");
     } finally {
       setProcessing(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
