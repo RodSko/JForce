@@ -131,6 +131,9 @@ const BatchNumbers: React.FC = () => {
             
             if (!orderId) return;
 
+            // Filtrar Pedidos Filhos (pedidos que terminam com -001, -002, etc)
+            if (orderId.includes('-')) return;
+
             const normalizedInput = normalize(baseNameRaw);
             const matchedBase = ALLOWED_BASES.find(b => {
               const normalizedAllowed = normalize(b);
@@ -141,7 +144,6 @@ const BatchNumbers: React.FC = () => {
               console.log('Unmatched base:', baseNameRaw, 'Normalized:', normalizedInput);
             }
 
-            // Removido filtro de hifen para contar todos os pedidos
             if (matchedBase) {
               validOrders.add(orderId);
               baseCounts[matchedBase] = (baseCounts[matchedBase] || 0) + 1;
