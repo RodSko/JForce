@@ -118,7 +118,7 @@ const BatchNumbers: React.FC = () => {
           let ignoredCount = 0;
 
           if (!colOrder || !colBase) {
-             const missing = [];
+             const missing: string[] = [];
              if (!colOrder) missing.push("Pedido/JMS");
              if (!colBase) missing.push("Base/Destino");
              reject(new Error(`Colunas obrigatórias não encontradas: ${missing.join(', ')}. Verifique os cabeçalhos da planilha.`));
@@ -212,9 +212,10 @@ const BatchNumbers: React.FC = () => {
       setAnalysisResults(finalResults);
       setShowAnalysis(true);
 
-    } catch (error: any) {
+    } catch (error) {
       console.error(error);
-      alert(error.message || "Erro ao processar arquivos.");
+      const msg = error instanceof Error ? error.message : "Erro ao processar arquivos.";
+      alert(msg);
     } finally {
       setProcessing(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
