@@ -5,7 +5,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 
 // Lista oficial das 20 bases conforme solicitação
 const BASES_SE = ['NSS-SE', 'NSG-SE', 'IBN-SE', 'F IBN-SE', 'F LAG-SE', 'PRO-SE', 'F EST-SE', 'CDM-SE', 'F CDM - SE', 'BUG-SE'];
-const BASES_AL = ['ARP-AL', 'F ARP - AL', 'F ARP 02-AL', 'PMI-AL', 'STI-AL', 'CAL-AL', 'CRP-AL', 'MDC-AL', 'JCN-AL', 'JGA-AL', 'F MCZ-AL'];
+const BASES_AL = ['ARP-AL', 'F ARP - AL', 'F ARP 02-AL', 'PMI-AL', 'STI-AL', 'CAL-AL', 'CRP-AL', 'MDC-AL', 'JCN-AL', 'JGA-AL', 'F MCZ-AL', 'F MCZ 02-AL'];
 const ALL_ALLOWED_BASES = [...BASES_SE, ...BASES_AL];
 
 interface ForecastResult {
