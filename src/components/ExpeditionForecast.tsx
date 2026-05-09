@@ -1,7 +1,8 @@
 import React, { useState, useRef, useMemo } from 'react';
 import * as XLSX from 'xlsx';
-import { FileSpreadsheet, TrendingUp, AlertCircle, Loader2, Table, Package, MapPin, BarChart3, RefreshCw, Files } from 'lucide-react';
+import { FileSpreadsheet, TrendingUp, AlertCircle, Loader2, Package, MapPin, BarChart3, RefreshCw, Files, Download } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList } from 'recharts';
+import html2canvas from 'html2canvas';
 
 // Lista oficial das 20 bases conforme solicitação
 const BASES_SE = ['NSS-SE', 'NSG-SE', 'IBN-SE', 'F IBN-SE', 'F LAG-SE', 'PRO-SE', 'F EST-SE', 'CDM-SE', 'F CDM - SE', 'BUG-SE', 'F NSS - SE', 'F PRO - SE'];
@@ -16,8 +17,10 @@ interface ForecastResult {
 
 const ExpeditionForecast: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dashboardRef = useRef<HTMLDivElement>(null);
   const [filesCount, setFilesCount] = useState<number>(0);
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [isExporting, setIsExporting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [processedResults, setProcessedResults] = useState<ForecastResult[]>([]);
 
@@ -157,6 +160,34 @@ const ExpeditionForecast: React.FC = () => {
     setStatus('idle');
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
+  
+  const exportAsImage = async () => {
+    if (!dashboardRef.current) return;
+    setIsExporting(true);
+    try {
+      // Pequeno delay para garantir que as animações do Recharts finalizaram
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      const canvas = await html2canvas(dashboardRef.current, {
+        scale: 2, 
+        backgroundColor: '#f8fafc',
+        useCORS: true,
+        logging: false,
+      });
+      
+      const image = canvas.toDataURL("image/png", 1.0);
+      const link = document.createElement('a');
+      const today = new Date().toISOString().split('T')[0];
+      link.download = `previsao-expedicao-${today}.png`;
+      link.href = image;
+      link.click();
+    } catch (err) {
+      console.error('Erro ao exportar imagem:', err);
+      alert('Ocorreu um erro ao gerar a imagem.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const specialBases = useMemo(() => ['F ARP - AL', 'F ARP 02-AL', 'PMI-AL', 'STI-AL'], []);
   const dataSE = useMemo(() => processedResults.filter(r => r.state === 'SE'), [processedResults]);
@@ -167,14 +198,28 @@ const ExpeditionForecast: React.FC = () => {
   return (
     <div className="max-w-7xl mx-auto space-y-8 pb-10">
       {/* Banner Superior */}
-      <div className="bg-slate-900 rounded-2xl p-8 text-white shadow-xl bg-[url('https://images.unsplash.com/photo-1553413077-190dd305871c?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80')] bg-cover bg-center bg-blend-overlay bg-opacity-90">
-        <h2 className="text-3xl font-bold mb-2 flex items-center gap-3">
-          <TrendingUp className="w-8 h-8 text-indigo-400" />
-          Previsão Consolidada
-        </h2>
-        <p className="text-slate-300 max-w-2xl font-medium">
-          Soma automática de demanda para Sergipe e Alagoas. Você pode selecionar <span className="text-white font-bold">múltiplas planilhas</span> para processar de uma só vez.
-        </p>
+      <div className="bg-slate-900 rounded-2xl p-8 text-white shadow-xl bg-[url('https://images.unsplash.com/photo-1553413077-190dd305871c?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80')] bg-cover bg-center bg-blend-overlay bg-opacity-90 relative overflow-hidden">
+        <div className="relative z-10 flex justify-between items-start">
+          <div>
+            <h2 className="text-3xl font-bold mb-2 flex items-center gap-3">
+              <TrendingUp className="w-8 h-8 text-indigo-400" />
+              Previsão Consolidada
+            </h2>
+            <p className="text-slate-300 max-w-2xl font-medium">
+              Soma automática de demanda para Sergipe e Alagoas. Você pode selecionar <span className="text-white font-bold">múltiplas planilhas</span> para processar de uma só vez.
+            </p>
+          </div>
+          {status === 'success' && (
+            <button
+              onClick={exportAsImage}
+              disabled={isExporting}
+              className="bg-white/10 hover:bg-white/20 backdrop-blur-md px-4 py-2 rounded-xl text-white font-black text-xs uppercase tracking-widest flex items-center gap-2 transition-all border border-white/20 shadow-xl disabled:opacity-50"
+            >
+              {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+              Exportar PNG
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Área de Upload */}
@@ -241,7 +286,7 @@ const ExpeditionForecast: React.FC = () => {
 
       {/* Dashboard de Resultados */}
       {status === 'success' && (
-        <div className="space-y-8 animate-fade-in">
+        <div ref={dashboardRef} className="space-y-8 animate-fade-in p-2">
           
           {/* Resumo Numérico */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -340,26 +385,6 @@ const ExpeditionForecast: React.FC = () => {
               </div>
             </div>
 
-          </div>
-
-          {/* Tabela de Rodapé */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-             <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
-                <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                  <Table className="w-5 h-5 text-indigo-600" /> Soma de Volume por Base ({filesCount} arquivos)
-                </h3>
-                <span className="text-[10px] font-black text-slate-400 uppercase">Processado em tempo real</span>
-             </div>
-             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 p-4 gap-4">
-                {processedResults.map((res, idx) => (
-                  <div key={idx} className="flex justify-between items-center p-3 bg-slate-50 rounded-lg border border-slate-100 hover:border-indigo-200 transition-all group">
-                    <span className="text-[10px] font-black text-slate-600 group-hover:text-indigo-600">{res.base}</span>
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-black shadow-sm ${res.state === 'SE' ? 'bg-blue-600 text-white' : 'bg-teal-600 text-white'}`}>
-                      {res.count}
-                    </span>
-                  </div>
-                ))}
-             </div>
           </div>
         </div>
       )}
