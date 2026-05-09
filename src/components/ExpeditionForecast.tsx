@@ -132,15 +132,15 @@ const ExpeditionForecast: React.FC = () => {
       }
 
       const finalResults: ForecastResult[] = Object.entries(globalCounts).map(([base, count]) => {
-        // Fix: Cast count to number to ensure compatibility with ForecastResult interface
         const numCount = count as number;
         return {
           base,
           count: numCount,
           state: (BASES_SE.includes(base) ? 'SE' : 'AL') as 'SE' | 'AL'
         };
-      }).sort((a, b) => b.count - a.count);
+      });
 
+      finalResults.sort((a, b) => b.count - a.count);
       setProcessedResults(finalResults);
       setStatus('success');
     } catch (err: unknown) {
@@ -158,8 +158,10 @@ const ExpeditionForecast: React.FC = () => {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  const specialBases = useMemo(() => ['F ARP - AL', 'F ARP 02-AL', 'PMI-AL', 'STI-AL'], []);
   const dataSE = useMemo(() => processedResults.filter(r => r.state === 'SE'), [processedResults]);
-  const dataAL = useMemo(() => processedResults.filter(r => r.state === 'AL'), [processedResults]);
+  const dataAL = useMemo(() => processedResults.filter(r => r.state === 'AL' && !specialBases.includes(r.base)), [processedResults, specialBases]);
+  const dataSpecial = useMemo(() => processedResults.filter(r => specialBases.includes(r.base)), [processedResults, specialBases]);
   const totalVolume = processedResults.reduce((acc, curr) => acc + curr.count, 0);
 
   return (
@@ -242,44 +244,51 @@ const ExpeditionForecast: React.FC = () => {
         <div className="space-y-8 animate-fade-in">
           
           {/* Resumo Numérico */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
               <div className="p-3 bg-indigo-100 rounded-lg text-indigo-600"><Package className="w-6 h-6" /></div>
               <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Volume Total (Pai)</p>
-                <p className="text-3xl font-black text-slate-900">{totalVolume.toLocaleString('pt-BR')}</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Volume Geral</p>
+                <p className="text-2xl font-black text-slate-900">{totalVolume.toLocaleString('pt-BR')}</p>
               </div>
             </div>
             <div className="bg-blue-600 p-6 rounded-xl text-white shadow-lg flex items-center gap-4">
-              <MapPin className="w-8 h-8 opacity-40" />
+              <MapPin className="w-6 h-6 opacity-40" />
               <div>
-                <p className="text-xs font-bold uppercase opacity-80">Carga Sergipe</p>
-                <p className="text-3xl font-black">{dataSE.reduce((a,c)=>a+c.count, 0).toLocaleString('pt-BR')}</p>
+                <p className="text-[10px] font-bold uppercase opacity-80 text-white/70">Sergipe (SE)</p>
+                <p className="text-2xl font-black">{dataSE.reduce((a,c)=>a+c.count, 0).toLocaleString('pt-BR')}</p>
               </div>
             </div>
             <div className="bg-teal-600 p-6 rounded-xl text-white shadow-lg flex items-center gap-4">
-              <MapPin className="w-8 h-8 opacity-40" />
+              <MapPin className="w-6 h-6 opacity-40" />
               <div>
-                <p className="text-xs font-bold uppercase opacity-80">Carga Alagoas</p>
-                <p className="text-3xl font-black">{dataAL.reduce((a,c)=>a+c.count, 0).toLocaleString('pt-BR')}</p>
+                <p className="text-[10px] font-bold uppercase opacity-80 text-white/70">Alagoas (AL)</p>
+                <p className="text-2xl font-black">{dataAL.reduce((a,c)=>a+c.count, 0).toLocaleString('pt-BR')}</p>
+              </div>
+            </div>
+            <div className="bg-white p-6 rounded-xl border-2 border-amber-200 text-amber-900 shadow-sm flex items-center gap-4">
+              <Package className="w-6 h-6 text-amber-500 opacity-70" />
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-amber-600">Arapiraca (F ARP/PMI/STI)</p>
+                <p className="text-2xl font-black">{dataSpecial.reduce((a,c)=>a+c.count, 0).toLocaleString('pt-BR')}</p>
               </div>
             </div>
           </div>
 
-          {/* Gráficos Lado a Lado */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Gráficos em seções separadas */}
+          <div className="space-y-8">
             
             {/* Bloco Sergipe */}
             <div className="bg-white p-6 rounded-2xl border-2 border-blue-50 shadow-sm">
               <h3 className="text-lg font-black text-blue-900 mb-6 flex items-center gap-2 uppercase tracking-tighter">
                 <BarChart3 className="w-5 h-5" /> Distribuição Sergipe (SE)
               </h3>
-              <div className="h-[450px] w-full">
+              <div className="h-[400px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={dataSE} layout="vertical" margin={{ left: 30, right: 60 }}>
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
                     <XAxis type="number" hide />
-                    <YAxis dataKey="base" type="category" tick={{ fontSize: 10, fontWeight: 'bold', fill: '#1e3a8a' }} width={80} />
+                    <YAxis dataKey="base" type="category" tick={{ fontSize: 10, fontWeight: 'bold', fill: '#1e3a8a' }} width={110} />
                     <Tooltip cursor={{fill: '#f8fafc'}} />
                     <Bar dataKey="count" fill="#2563eb" radius={[0, 4, 4, 0]} barSize={25}>
                       <LabelList dataKey="count" position="right" style={{ fontSize: 11, fontWeight: 'bold', fill: '#1e3a8a' }} />
@@ -289,23 +298,45 @@ const ExpeditionForecast: React.FC = () => {
               </div>
             </div>
 
-            {/* Bloco Alagoas */}
-            <div className="bg-white p-6 rounded-2xl border-2 border-teal-50 shadow-sm">
-              <h3 className="text-lg font-black text-teal-900 mb-6 flex items-center gap-2 uppercase tracking-tighter">
-                <BarChart3 className="w-5 h-5" /> Distribuição Alagoas (AL)
-              </h3>
-              <div className="h-[450px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={dataAL} layout="vertical" margin={{ left: 30, right: 60 }}>
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-                    <XAxis type="number" hide />
-                    <YAxis dataKey="base" type="category" tick={{ fontSize: 10, fontWeight: 'bold', fill: '#134e4a' }} width={80} />
-                    <Tooltip cursor={{fill: '#f8fafc'}} />
-                    <Bar dataKey="count" fill="#0d9488" radius={[0, 4, 4, 0]} barSize={25}>
-                      <LabelList dataKey="count" position="right" style={{ fontSize: 11, fontWeight: 'bold', fill: '#134e4a' }} />
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Bloco Alagoas Regular */}
+              <div className="bg-white p-6 rounded-2xl border-2 border-teal-50 shadow-sm">
+                <h3 className="text-lg font-black text-teal-900 mb-6 flex items-center gap-2 uppercase tracking-tighter">
+                  <BarChart3 className="w-5 h-5" /> Distribuição Alagoas (AL)
+                </h3>
+                <div className="h-[400px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={dataAL} layout="vertical" margin={{ left: 30, right: 60 }}>
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                      <XAxis type="number" hide />
+                      <YAxis dataKey="base" type="category" tick={{ fontSize: 10, fontWeight: 'bold', fill: '#134e4a' }} width={110} />
+                      <Tooltip cursor={{fill: '#f8fafc'}} />
+                      <Bar dataKey="count" fill="#0d9488" radius={[0, 4, 4, 0]} barSize={25}>
+                        <LabelList dataKey="count" position="right" style={{ fontSize: 11, fontWeight: 'bold', fill: '#134e4a' }} />
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Bloco Especial (F ARP, PMI, STI) */}
+              <div className="bg-white p-6 rounded-2xl border-2 border-amber-100 shadow-md">
+                <h3 className="text-lg font-black text-amber-900 mb-6 flex items-center gap-2 uppercase tracking-tighter">
+                  <AlertCircle className="w-5 h-5 text-amber-600" /> Distribuição Arapiraca
+                </h3>
+                <div className="h-[400px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={dataSpecial} layout="vertical" margin={{ left: 30, right: 60 }}>
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#fef3c7" />
+                      <XAxis type="number" hide />
+                      <YAxis dataKey="base" type="category" tick={{ fontSize: 10, fontWeight: 'bold', fill: '#92400e' }} width={110} />
+                      <Tooltip cursor={{fill: '#fffbeb'}} />
+                      <Bar dataKey="count" fill="#d97706" radius={[0, 4, 4, 0]} barSize={35}>
+                        <LabelList dataKey="count" position="right" style={{ fontSize: 12, fontWeight: 'bold', fill: '#92400e' }} />
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             </div>
 
