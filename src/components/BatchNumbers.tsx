@@ -10,7 +10,7 @@ const ALLOWED_BASES = [
   'NSS-SE', 'NSG-SE', 'IBN-SE', 'F IBN-SE', 'F LAG-SE', 'PRO-SE', 'F EST-SE', 
   'CDM-SE', 'F CDM - SE', 'BUG-SE', 'F NSS - SE', 'F PRO - SE',
   'ARP-AL', 'F ARP - AL', 'F ARP 02-AL', 'PMI-AL', 'STI-AL', 'CAL-AL', 'CRP-AL', 
-  'MDC-AL', 'JCN-AL', 'JGA-AL', 'F MCZ-AL', 'F MCZ 02-AL', 'F MRG - AL', 'F PND - AL', 'F CAL - AL'
+  'MDC-AL', 'JCN-AL', 'JGA-AL', 'F MCZ-AL', 'F MCZ 02-AL', 'F MRG - AL', 'F PND - AL', 'F CAL - AL', 'F JAT - AL', 'F UNP - AL'
 ].sort((a, b) => b.length - a.length);
 
 interface AnalysisResult {
