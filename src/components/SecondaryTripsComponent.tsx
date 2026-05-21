@@ -148,9 +148,18 @@ const SecondaryTripsComponent: React.FC = () => {
 
         dataLoaded.forEach(row => {
           const val = cleanValue(row[colLoaded]);
-          if (val && !unloadedSet.has(val) && !seenCodes.has(val)) {
-            seenCodes.add(val);
-            diffRows.push(row);
+          if (val) {
+            // Ajuste fino: Se o pedido terminar com hífen/travessão seguido de numeração (ex: -001, -002, –001)
+            // e não começar com '88809000', ele deve ser ignorado.
+            const hasDashNumberSuffix = /[-–—]\d+$/.test(val);
+            if (hasDashNumberSuffix && !val.startsWith('88809000')) {
+              return;
+            }
+
+            if (!unloadedSet.has(val) && !seenCodes.has(val)) {
+              seenCodes.add(val);
+              diffRows.push(row);
+            }
           }
         });
 
