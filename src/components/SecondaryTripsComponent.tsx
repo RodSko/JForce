@@ -28,7 +28,7 @@ const SecondaryTripsComponent: React.FC = () => {
   const [orderField, setOrderField] = useState('');
 
   // Interface/Visualização dos QR Codes
-  const [viewMode, setViewMode] = useState<'grid' | 'slide'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'slide'>('slide');
   const [slideIndex, setSlideIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
