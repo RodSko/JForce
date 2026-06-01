@@ -23,6 +23,7 @@ const ExpeditionForecast: React.FC = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [processedResults, setProcessedResults] = useState<ForecastResult[]>([]);
+  const [mergedData, setMergedData] = useState<Record<string, unknown>[]>([]);
 
   // Normalização agressiva para garantir o "match"
   const normalize = (str: string) => {
@@ -42,7 +43,7 @@ const ExpeditionForecast: React.FC = () => {
     return '';
   };
 
-  const processSingleFile = (file: File): Promise<{counts: Record<string, number>, uniqueOrders: Set<string>, headers: string[], totalRows: number}> => {
+  const processSingleFile = (file: File): Promise<{counts: Record<string, number>, uniqueOrders: Set<string>, headers: string[], totalRows: number, rawData: Record<string, unknown>[]}> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (evt) => {
@@ -54,7 +55,7 @@ const ExpeditionForecast: React.FC = () => {
           const jsonData = XLSX.utils.sheet_to_json<any>(ws, { defval: "" });
           
           if (jsonData.length === 0) {
-            resolve({ counts: {}, uniqueOrders: new Set(), headers: [], totalRows: 0 });
+            resolve({ counts: {}, uniqueOrders: new Set(), headers: [], totalRows: 0, rawData: [] });
             return;
           }
 
@@ -93,7 +94,14 @@ const ExpeditionForecast: React.FC = () => {
             }
           });
 
-          resolve({ counts, uniqueOrders, headers, totalRows: jsonData.length });
+          // Filtrar os pedidos filhos (que terminam com hífen/travessão e numeração, ex: -001, - 002, –001) para a planilha de download
+          const filteredRawData = jsonData.filter(row => {
+            const orderId = String(row[colOrder] || '').trim();
+            const isChildOrder = /[-–—]\s*\d+$/.test(orderId);
+            return !isChildOrder;
+          });
+
+          resolve({ counts, uniqueOrders, headers, totalRows: jsonData.length, rawData: filteredRawData });
         } catch (err) {
           reject(err);
         }
@@ -110,6 +118,7 @@ const ExpeditionForecast: React.FC = () => {
     setStatus('loading');
     setFilesCount(files.length);
     setProcessedResults([]);
+    setMergedData([]);
     
     try {
       // Fix: Explicitly type 'file' as File to resolve TypeScript 'unknown' error
@@ -118,6 +127,7 @@ const ExpeditionForecast: React.FC = () => {
 
       const globalCounts: Record<string, number> = {};
       const globalUniqueOrders = new Set<string>();
+      const accumulatedRawData: Record<string, unknown>[] = [];
 
       resultsArray.forEach(res => {
         Object.entries(res.counts).forEach(([base, count]) => {
@@ -128,6 +138,9 @@ const ExpeditionForecast: React.FC = () => {
 
         // Acumular pedidos únicos para o totalizador geral
         res.uniqueOrders.forEach(order => globalUniqueOrders.add(order));
+        
+        // Acumular todos os dados originais
+        accumulatedRawData.push(...res.rawData);
       });
 
       if (globalUniqueOrders.size === 0) {
@@ -144,6 +157,7 @@ const ExpeditionForecast: React.FC = () => {
       });
 
       finalResults.sort((a, b) => b.count - a.count);
+      setMergedData(accumulatedRawData);
       setProcessedResults(finalResults);
       setStatus('success');
     } catch (err: unknown) {
@@ -157,8 +171,18 @@ const ExpeditionForecast: React.FC = () => {
   const handleReset = () => {
     setProcessedResults([]);
     setFilesCount(0);
+    setMergedData([]);
     setStatus('idle');
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleDownloadMerged = () => {
+    if (mergedData.length === 0) return;
+    const ws = XLSX.utils.json_to_sheet(mergedData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Base_Unificada");
+    const today = new Date().toISOString().split('T')[0];
+    XLSX.writeFile(wb, `previsoes_unificadas_${today}.xlsx`);
   };
   
   const exportAsImage = async () => {
@@ -210,14 +234,23 @@ const ExpeditionForecast: React.FC = () => {
             </p>
           </div>
           {status === 'success' && (
-            <button
-              onClick={exportAsImage}
-              disabled={isExporting}
-              className="bg-white/10 hover:bg-white/20 backdrop-blur-md px-4 py-2 rounded-xl text-white font-black text-xs uppercase tracking-widest flex items-center gap-2 transition-all border border-white/20 shadow-xl disabled:opacity-50"
-            >
-              {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-              Exportar PNG
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={handleDownloadMerged}
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl font-black text-xs uppercase tracking-widest flex items-center gap-2 transition-all shadow-xl animate-fade-in"
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                Baixar Planilha Unificada
+              </button>
+              <button
+                onClick={exportAsImage}
+                disabled={isExporting}
+                className="bg-white/10 hover:bg-white/20 backdrop-blur-md px-4 py-2 rounded-xl text-white font-black text-xs uppercase tracking-widest flex items-center gap-2 transition-all border border-white/20 shadow-xl disabled:opacity-50"
+              >
+                {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                Exportar PNG
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -248,19 +281,30 @@ const ExpeditionForecast: React.FC = () => {
                 <FileSpreadsheet className="w-5 h-5" /> Selecionar Planilhas
               </button>
             ) : (
-              <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 w-full animate-fade-in">
-                <div className="bg-indigo-100 p-2 rounded-lg text-indigo-600">
-                  <Files className="w-6 h-6" />
+              <div className="flex flex-col sm:flex-row items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 w-full animate-fade-in">
+                <div className="flex items-center gap-3 flex-1 overflow-hidden w-full">
+                  <div className="bg-indigo-100 p-2 rounded-lg text-indigo-600 shrink-0">
+                    <Files className="w-6 h-6" />
+                  </div>
+                  <div className="text-left overflow-hidden">
+                    <p className="text-sm font-bold text-slate-800 truncate">
+                      {filesCount} {filesCount === 1 ? 'Arquivo processado' : 'Arquivos consolidados'}
+                    </p>
+                    <p className="text-xs text-green-600 font-bold uppercase tracking-tighter">Soma de Volume Concluída</p>
+                  </div>
                 </div>
-                <div className="flex-1 text-left overflow-hidden">
-                  <p className="text-sm font-bold text-slate-800 truncate">
-                    {filesCount} {filesCount === 1 ? 'Arquivo processado' : 'Arquivos consolidados'}
-                  </p>
-                  <p className="text-xs text-green-600 font-bold uppercase tracking-tighter">Soma de Volume Concluída</p>
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                  <button
+                    onClick={handleDownloadMerged}
+                    className="flex-1 sm:flex-initial px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                    title="Baixar planilha unificada"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5 animate-bounce-slow" /> Baixar Unificada
+                  </button>
+                  <button onClick={handleReset} className="p-2 text-slate-400 hover:text-red-500 transition-colors shrink-0" title="Limpar e reiniciar">
+                    <RefreshCw className="w-5 h-5" />
+                  </button>
                 </div>
-                <button onClick={handleReset} className="p-2 text-slate-400 hover:text-red-500 transition-colors" title="Limpar e reiniciar">
-                  <RefreshCw className="w-5 h-5" />
-                </button>
               </div>
             )}
           </div>
