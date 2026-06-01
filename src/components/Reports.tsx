@@ -53,7 +53,112 @@ const Reports: React.FC<Props> = () => {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [startTimeFilter, setStartTimeFilter] = useState<string>('');
   const [endTimeFilter, setEndTimeFilter] = useState<string>('');
+  const [ignoredLotesCount, setIgnoredLotesCount] = useState<number>(0);
+  const [ignoredChildOrdersCount, setIgnoredChildOrdersCount] = useState<number>(0);
   const itemsPerPage = 15;
+
+  // Identifica a coluna correta que representa o identificador do pedido/pacote/lote
+  const findOrderColumn = (row: Record<string, unknown>): string => {
+    const keys = Object.keys(row);
+    const candidates = [
+      'número de pedido jms', 'numero de pedido jms', 'pedido jms', 'pedido', 'nº pedido', 
+      'numero pedido', 'order number', 'order id', 'código de barras', 'codigo de barras', 
+      'rastreio', 'cód rastreio', 'cod rastreio', 'lote', 'order', 'pacote', 'bipagem'
+    ];
+    for (const cand of candidates) {
+      const match = keys.find(k => k.toLowerCase().trim() === cand);
+      if (match) return match;
+    }
+    for (const cand of candidates) {
+      const match = keys.find(k => k.toLowerCase().includes(cand));
+      if (match) return match;
+    }
+    // Fallbacks
+    const fallbacks = ['id', 'código', 'codigo', 'nº', 'número', 'numero', 'ref'];
+    for (const fb of fallbacks) {
+      const match = keys.find(k => {
+        const kLower = k.toLowerCase();
+        return kLower.includes(fb) && 
+               !kLower.includes('tempo') && 
+               !kLower.includes('data') && 
+               !kLower.includes('hora') &&
+               !kLower.includes('usuario') &&
+               !kLower.includes('usuário') &&
+               !kLower.includes('operador');
+      });
+      if (match) return match;
+    }
+    return '';
+  };
+
+  // Verifica se o valor indica um lote (começando com BR) ou pedido filho (terminando com -001, -002, etc.)
+  const checkExclusion = (row: Record<string, unknown>, colName: string): { isLote: boolean; isChildOrder: boolean } => {
+    let isLote = false;
+    let isChildOrder = false;
+
+    // Encontra a coluna correspondente à identificação do pedido
+    const orderCol = findOrderColumn(row);
+    
+    if (orderCol) {
+      const val = row[orderCol];
+      if (val !== undefined && val !== null) {
+        const valStr = String(val).trim();
+        if (valStr.length >= 2) {
+          // 1. "lotes que são aqueles que começam com BR"
+          if (/^BR/i.test(valStr)) {
+            isLote = true;
+          }
+          // 2. "pedidos filhos que são aqueles que terminam com -001, -002 etc"
+          if (/-\d+$/.test(valStr)) {
+            isChildOrder = true;
+          }
+        }
+      }
+    } else {
+      // Fallback seguro caso não identifique coluna de pedido, varre outras chaves mas ignora metadados comuns (datas, bases, operadores, etc)
+      const keys = Object.keys(row);
+      for (const key of keys) {
+        if (key === colName) continue;
+        const kLower = key.toLowerCase();
+        if (
+          kLower.includes('tempo') || 
+          kLower.includes('data') || 
+          kLower.includes('time') || 
+          kLower.includes('hora') || 
+          kLower.includes('usuario') || 
+          kLower.includes('usuário') || 
+          kLower.includes('operador') || 
+          kLower.includes('nome') ||
+          kLower.includes('base') ||
+          kLower.includes('destino') ||
+          kLower.includes('parada') ||
+          kLower.includes('filial') ||
+          kLower.includes('hub') ||
+          kLower.includes('local') ||
+          kLower.includes('estab')
+        ) {
+          continue;
+        }
+
+        const val = row[key];
+        if (val === undefined || val === null) continue;
+        const valStr = String(val).trim();
+        if (valStr.length < 2) continue;
+
+        if (/^BR/i.test(valStr)) {
+          isLote = true;
+        }
+        if (/-\d+$/.test(valStr)) {
+          isChildOrder = true;
+        }
+        if (isLote || isChildOrder) {
+          break;
+        }
+      }
+    }
+
+    return { isLote, isChildOrder };
+  };
 
   // Encontra coluna correspondente ao "Tempo de digitalização" ou variações
   const findScanTimeColumn = (row: Record<string, unknown>): string => {
@@ -145,10 +250,23 @@ const Reports: React.FC<Props> = () => {
         setColumnName(colName);
 
         const parsedRows: ScanRow[] = [];
+        let lotesCount = 0;
+        let childCount = 0;
+
         json.forEach((row) => {
           const rawVal = row[colName];
           const parsedDate = parseExcelDate(rawVal);
           if (parsedDate) {
+            const { isLote, isChildOrder } = checkExclusion(row, colName);
+            if (isLote) {
+              lotesCount++;
+              return;
+            }
+            if (isChildOrder) {
+              childCount++;
+              return;
+            }
+
             parsedRows.push({
               raw: row,
               scanTime: parsedDate,
@@ -157,8 +275,11 @@ const Reports: React.FC<Props> = () => {
           }
         });
 
+        setIgnoredLotesCount(lotesCount);
+        setIgnoredChildOrdersCount(childCount);
+
         if (parsedRows.length === 0) {
-          throw new Error(`Coluna "${colName}" encontrada, mas nenhum valor pôde ser convertido em data/hora válidas.`);
+          throw new Error(`Coluna "${colName}" encontrada, mas nenhum valor pôde ser convertido em data/hora válidas após filtragem (lotes/pedidos filhos foram removidos).`);
         }
 
         // Ordenar bipes cronologicamente
@@ -194,6 +315,8 @@ const Reports: React.FC<Props> = () => {
     setTableSearch('');
     setStartTimeFilter('');
     setEndTimeFilter('');
+    setIgnoredLotesCount(0);
+    setIgnoredChildOrdersCount(0);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -493,6 +616,30 @@ const Reports: React.FC<Props> = () => {
               </button>
             </div>
           </div>
+
+          {/* Banner de Filtragem Automática de Lotes / Pedidos Filhos */}
+          {(ignoredLotesCount > 0 || ignoredChildOrdersCount > 0) && (
+            <div className="bg-indigo-50/60 border border-indigo-100 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fade-in shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-indigo-100/50 text-indigo-700 rounded-xl">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <h5 className="text-xs font-black uppercase text-indigo-950 tracking-wider">
+                    Filtragem de Produtividade Ativa
+                  </h5>
+                  <p className="text-[11px] text-slate-600 font-medium leading-relaxed">
+                    A planilha foi limpa automaticamente: desconsideramos{' '}
+                    <span className="font-extrabold text-indigo-950">{ignoredLotesCount} lote(s)</span> que começam com <span className="font-mono bg-slate-100 px-1 py-0.5 rounded text-indigo-950">"BR"</span> e{' '}
+                    <span className="font-extrabold text-indigo-950">{ignoredChildOrdersCount} pedido(s) filho(s)</span> terminados em <span className="font-mono bg-slate-100 px-1 py-0.5 rounded text-indigo-950">"-001, -002, etc."</span> para garantir métricas operacionais reais.
+                  </p>
+                </div>
+              </div>
+              <span className="bg-indigo-100 text-indigo-900 border border-indigo-200 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider whitespace-nowrap self-stretch sm:self-auto flex items-center justify-center">
+                -{ignoredLotesCount + ignoredChildOrdersCount} bipes expurgados
+              </span>
+            </div>
+          )}
 
           {/* Filtros de Intervalo de Tempo */}
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-end gap-6 animate-fade-in">
